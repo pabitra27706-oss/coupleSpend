@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="c" width="512" height="512"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const sizes  = [72, 96, 128, 192, 512];
+
+function drawIcon(size) {
+  canvas.width  = size;
+  canvas.height = size;
+
+  // Background
+  const radius = size * 0.22;
+  ctx.beginPath();
+  ctx.moveTo(radius, 0);
+  ctx.lineTo(size - radius, 0);
+  ctx.quadraticCurveTo(size, 0, size, radius);
+  ctx.lineTo(size, size - radius);
+  ctx.quadraticCurveTo(size, size, size - radius, size);
+  ctx.lineTo(radius, size);
+  ctx.quadraticCurveTo(0, size, 0, size - radius);
+  ctx.lineTo(0, radius);
+  ctx.quadraticCurveTo(0, 0, radius, 0);
+  ctx.closePath();
+  ctx.fillStyle = '#6366f1';
+  ctx.fill();
+
+  // Text CS
+  ctx.fillStyle   = '#ffffff';
+  ctx.font        = `bold ${size * 0.38}px Inter, Arial`;
+  ctx.textAlign   = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('CS', size / 2, size / 2);
+
+  return canvas.toDataURL('image/png');
+}
+
+// Create download links
+sizes.forEach(size => {
+  const dataUrl = drawIcon(size);
+  const link    = document.createElement('a');
+  link.download  = `icon-${size}.png`;
+  link.href      = dataUrl;
+  link.textContent = `Download icon-${size}.png`;
+  link.style.display = 'block';
+  link.style.margin  = '8px';
+  document.body.appendChild(link);
+});
+</script>
+</body>
+</html>

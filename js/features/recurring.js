@@ -11,7 +11,7 @@ const RecurringManager = (() => {
     const recurring = store.state.recurring;
     const today     = getTodayStr();
 
-    if (!uid || recurring.length === 0) return;
+    if (!uid || !recurring || recurring.length === 0) return;
 
     const toAdd = recurring.filter(r => {
       return r.isActive && r.nextDate && r.nextDate <= today;
@@ -25,7 +25,7 @@ const RecurringManager = (() => {
       try {
         await addRecurringTransaction(rec, today, uid);
       } catch (err) {
-        console.error('[Recurring] Add error:', err, rec);
+        console.error('[Recurring] Add error:', err);
       }
     }
   }
@@ -34,7 +34,6 @@ const RecurringManager = (() => {
   async function addRecurringTransaction(rec, date, uid) {
     const month = date.substring(0, 7);
 
-    // Add transaction
     await db.collection(COLLECTIONS.TRANSACTIONS).add({
       userId:        uid,
       amount:        rec.amount,
@@ -51,19 +50,35 @@ const RecurringManager = (() => {
       updatedAt:     firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    // Update next date on recurring doc
     const nextDate = getNextDate(rec.frequency, date);
-    await db.collection(COLLECTIONS.RECURRING).doc(rec.id).update({
-      nextDate,
-      lastAdded: date
-    });
+    await db
+      .collection(COLLECTIONS.RECURRING)
+      .doc(rec.id)
+      .update({ nextDate, lastAdded: date });
 
-    // Notify user
+    // Show notification safely
     const cat = CATEGORIES.find(c => c.id === rec.category);
-    notificationsPage.showLocalNotification(
-      'Recurring Transaction Added',
-      `${rec.description || cat?.label}: ${store.getCurrencySymbol()}${rec.amount.toFixed(2)}`
-    );
+    const msg = `${rec.description || cat?.label || rec.category}: `
+      + `${store.getCurrencySymbol()}${rec.amount.toFixed(2)}`;
+
+    if (window.notificationsPage &&
+        typeof notificationsPage.showLocalNotification === 'function') {
+      notificationsPage.showLocalNotification(
+        'Recurring Transaction Added', msg
+      );
+    } else if (
+      'Notification' in window &&
+      Notification.permission === 'granted'
+    ) {
+      try {
+        new Notification('Recurring Transaction Added', {
+          body: msg,
+          icon: './assets/icons/icon-192.png'
+        });
+      } catch (e) {
+        console.log('Notification failed:', e);
+      }
+    }
   }
 
   // ── Calculate next date ────────────────────
@@ -97,7 +112,10 @@ const RecurringManager = (() => {
   async function add(data) {
     const uid     = store.state.user?.uid;
     const today   = getTodayStr();
-    const nextDate = getNextDate(data.frequency, data.startDate || today);
+    const nextDate = getNextDate(
+      data.frequency,
+      data.startDate || today
+    );
 
     try {
       await db.collection(COLLECTIONS.RECURRING).add({
@@ -111,17 +129,21 @@ const RecurringManager = (() => {
         tags:          data.tags || [],
         startDate:     data.startDate || today,
         nextDate,
-        endDate:       data.endDate   || null,
+        endDate:       data.endDate || null,
         isActive:      true,
         createdAt:     firebase.firestore.FieldValue.serverTimestamp()
       });
 
       await store.loadRecurring(uid);
-      Toast.success('Added', 'Recurring transaction created');
+      Toast.show('success', 'Added',
+        'Recurring transaction created'
+      );
 
     } catch (err) {
       console.error('Add recurring error:', err);
-      Toast.error('Failed', 'Could not create recurring transaction');
+      Toast.show('error', 'Failed',
+        'Could not create recurring transaction'
+      );
     }
   }
 
@@ -136,18 +158,25 @@ const RecurringManager = (() => {
       const uid = store.state.user?.uid;
       await store.loadRecurring(uid);
 
-      Toast.success(
+      Toast.show(
+        'success',
         isActive ? 'Resumed' : 'Paused',
         `Recurring transaction ${isActive ? 'resumed' : 'paused'}`
       );
 
     } catch (err) {
       console.error('Toggle recurring error:', err);
+      Toast.show('error', 'Failed', 'Could not update recurring');
     }
   }
 
   // ── Delete recurring ───────────────────────
   async function remove(recurringId) {
+    if (!window.Modal) {
+      console.error('Modal not loaded');
+      return;
+    }
+
     const confirmed = await Modal.confirm({
       title:   'Delete Recurring',
       message: 'Stop and delete this recurring transaction?',
@@ -165,16 +194,25 @@ const RecurringManager = (() => {
 
       const uid = store.state.user?.uid;
       await store.loadRecurring(uid);
-      Toast.success('Deleted', 'Recurring transaction removed');
+      Toast.show('success', 'Deleted',
+        'Recurring transaction removed'
+      );
 
     } catch (err) {
       console.error('Delete recurring error:', err);
-      Toast.error('Failed', 'Could not delete recurring transaction');
+      Toast.show('error', 'Failed',
+        'Could not delete recurring transaction'
+      );
     }
   }
 
   // ── Show recurring list modal ──────────────
   function showRecurringList() {
+    if (!window.Modal) {
+      console.error('Modal not loaded');
+      return;
+    }
+
     const recurring = store.state.recurring;
     const symbol    = store.getCurrencySymbol();
 
@@ -188,13 +226,14 @@ const RecurringManager = (() => {
         )
       : `
         <div class="recurring-list">
-          ${recurring.map(rec => buildRecurringItem(rec, symbol)).join('')}
+          ${recurring.map(rec =>
+            buildRecurringItem(rec, symbol)
+          ).join('')}
         </div>
         <button
           class="btn btn-primary btn-full mt-4"
           onclick="RecurringManager.showAddForm()"
         >
-          ${Icons.add}
           Add Recurring
         </button>
       `;
@@ -212,17 +251,18 @@ const RecurringManager = (() => {
   function buildRecurringItem(rec, symbol) {
     const cat = CATEGORIES.find(c => c.id === rec.category);
     const freqLabels = {
-      daily:     'Daily',
-      weekly:    'Weekly',
-      biweekly:  'Every 2 weeks',
-      monthly:   'Monthly',
-      yearly:    'Yearly'
+      daily:    'Daily',
+      weekly:   'Weekly',
+      biweekly: 'Every 2 weeks',
+      monthly:  'Monthly',
+      yearly:   'Yearly'
     };
 
     return `
       <div class="recurring-item ${!rec.isActive ? 'paused' : ''}">
         <div class="recurring-icon"
-          style="color:${cat?.color}; background:${cat?.color}18"
+          style="color:${cat?.color};
+                 background:${cat?.color}18"
         >
           ${Icons[cat?.icon || 'other']}
         </div>
@@ -240,9 +280,11 @@ const RecurringManager = (() => {
           }
         </div>
         <div class="recurring-right">
-          <div class="recurring-amount" style="
-            color: ${rec.type === 'income' ? 'var(--success)' : 'var(--danger)'}
-          ">
+          <div class="recurring-amount" style="color: ${
+            rec.type === 'income'
+              ? 'var(--success)'
+              : 'var(--danger)'
+          }">
             ${rec.type === 'income' ? '+' : '-'}${symbol}${rec.amount.toFixed(2)}
           </div>
           <div class="recurring-actions">
@@ -269,15 +311,22 @@ const RecurringManager = (() => {
 
   // ── Show add form ──────────────────────────
   function showAddForm() {
+    if (!window.Modal) {
+      console.error('Modal not loaded');
+      return;
+    }
+
     const symbol = store.getCurrencySymbol();
 
     const body = `
       <div class="input-group">
         <label class="input-label">Category</label>
         <select class="input" id="rec-category">
-          ${CATEGORIES.filter(c => c.id !== 'income').map(cat => `
-            <option value="${cat.id}">${cat.label}</option>
-          `).join('')}
+          ${CATEGORIES
+            .filter(c => c.id !== 'income')
+            .map(cat => `
+              <option value="${cat.id}">${cat.label}</option>
+            `).join('')}
         </select>
       </div>
 
@@ -349,7 +398,6 @@ const RecurringManager = (() => {
         class="btn btn-primary btn-full"
         onclick="RecurringManager.saveForm()"
       >
-        ${Icons.recurring}
         Add Recurring
       </button>
     `;
@@ -365,20 +413,24 @@ const RecurringManager = (() => {
 
   // ── Save form ──────────────────────────────
   async function saveForm() {
-    const category    = document.getElementById('rec-category')?.value;
-    const type        = document.getElementById('rec-type')?.value;
-    const amount      = parseFloat(document.getElementById('rec-amount')?.value);
-    const description = document.getElementById('rec-description')?.value.trim();
-    const frequency   = document.getElementById('rec-frequency')?.value;
-    const startDate   = document.getElementById('rec-start')?.value;
-    const payment     = document.getElementById('rec-payment')?.value;
+    const category = document.getElementById('rec-category')?.value;
+    const type     = document.getElementById('rec-type')?.value;
+    const amount   = parseFloat(
+      document.getElementById('rec-amount')?.value
+    );
+    const description = document.getElementById(
+      'rec-description'
+    )?.value.trim();
+    const frequency = document.getElementById('rec-frequency')?.value;
+    const startDate = document.getElementById('rec-start')?.value;
+    const payment   = document.getElementById('rec-payment')?.value;
 
     if (!amount || amount <= 0) {
-      Toast.error('Invalid', 'Please enter a valid amount');
+      Toast.show('error', 'Invalid', 'Please enter a valid amount');
       return;
     }
 
-    Modal.close('modal-add-recurring');
+    if (window.Modal) Modal.close('modal-add-recurring');
 
     await add({
       category,
@@ -404,241 +456,85 @@ const RecurringManager = (() => {
 
 })();
 
-// ── CSS for notifications & recurring ─────
-const extraStyles = document.createElement('style');
-extraStyles.textContent = `
-  /* Notifications */
-  .notif-header {
-    display:         flex;
-    align-items:     center;
-    justify-content: space-between;
-  }
-  .notif-list { overflow: hidden; }
-  .notif-item {
-    display:       flex;
-    align-items:   flex-start;
-    gap:           var(--space-3);
-    padding:       var(--space-4) var(--space-5);
-    border-bottom: 1px solid var(--border);
-    cursor:        pointer;
-    transition:    var(--transition-fast);
-    position:      relative;
-  }
-  .notif-item:last-child { border-bottom: none; }
-  .notif-item:active     { background: var(--bg-input); }
-  .notif-item.unread     { background: rgba(var(--accent-rgb), 0.03); }
-  .notif-icon {
-    width:           40px;
-    height:          40px;
-    border-radius:   var(--radius-lg);
-    display:         flex;
-    align-items:     center;
-    justify-content: center;
-    flex-shrink:     0;
-  }
-  .notif-icon svg {
-    width: 18px; height: 18px;
-    stroke: currentColor; fill: none;
-    stroke-width: 1.5;
-    stroke-linecap: round; stroke-linejoin: round;
-  }
-  .notif-body { flex: 1; min-width: 0; }
-  .notif-title {
-    font-size:   var(--text-sm);
-    font-weight: var(--weight-semi);
-    color:       var(--text-primary);
-  }
-  .notif-message {
-    font-size:  var(--text-xs);
-    color:      var(--text-secondary);
-    margin-top: 2px;
-    line-height: 1.5;
-  }
-  .notif-time {
-    font-size:  var(--text-xs);
-    color:      var(--text-muted);
-    margin-top: var(--space-1);
-  }
-  .notif-dot {
-    width:         8px;
-    height:        8px;
-    border-radius: 50%;
-    background:    var(--accent);
-    flex-shrink:   0;
-    margin-top:    var(--space-1);
-  }
-
-  /* Recurring */
+// ── CSS for notifications & recurring ──────
+const recurringStyles = document.createElement('style');
+recurringStyles.textContent = `
   .recurring-list {
-    display: flex; flex-direction: column; gap: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
   }
   .recurring-item {
-    display:       flex;
-    align-items:   center;
-    gap:           var(--space-3);
-    padding:       var(--space-4);
-    background:    var(--bg-input);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--bg-input);
     border-radius: var(--radius-xl);
-    border:        1px solid var(--border);
-    transition:    var(--transition-fast);
+    border: 1px solid var(--border);
+    transition: var(--transition-fast);
   }
   .recurring-item.paused { opacity: 0.6; }
   .recurring-icon {
-    width: 40px; height: 40px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-lg);
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
   }
   .recurring-icon svg {
     width: 18px; height: 18px;
     stroke: currentColor; fill: none;
     stroke-width: 1.5;
-    stroke-linecap: round; stroke-linejoin: round;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
   .recurring-info { flex: 1; min-width: 0; }
   .recurring-name {
-    font-size: var(--text-sm); font-weight: var(--weight-semi);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semi);
     color: var(--text-primary);
   }
   .recurring-meta {
-    font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin-top: 2px;
   }
   .recurring-right {
-    display: flex; flex-direction: column;
-    align-items: flex-end; gap: var(--space-1);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-1);
     flex-shrink: 0;
   }
   .recurring-amount {
-    font-size: var(--text-sm); font-weight: var(--weight-bold);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
   }
-  .recurring-actions { display: flex; gap: var(--space-1); }
+  .recurring-actions {
+    display: flex;
+    gap: var(--space-1);
+  }
   .recurring-actions svg {
     width: 14px; height: 14px;
     stroke: currentColor; fill: none;
     stroke-width: 1.5;
-    stroke-linecap: round; stroke-linejoin: round;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
-
-  /* Analytics Extras */
-  .analytics-duo {
-    display: flex; flex-direction: column; gap: var(--space-4);
-  }
-  .cat-legend-sm {
-    margin-top: var(--space-3);
-    display: flex; flex-direction: column; gap: var(--space-2);
-  }
-  .analytics-actions {
-    display: flex; gap: var(--space-3);
-  }
-  .analytics-actions svg {
-    width: 16px; height: 16px;
-    stroke: currentColor; fill: none;
-    stroke-width: 1.5;
-    stroke-linecap: round; stroke-linejoin: round;
-  }
-  .payment-breakdown {
-    display: flex; flex-direction: column; gap: var(--space-3);
-  }
-  .payment-method-row {
-    display: flex; align-items: center; gap: var(--space-3);
-  }
-  .payment-method-icon {
-    width: 36px; height: 36px;
-    border-radius: var(--radius-lg);
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .payment-method-icon svg {
-    width: 16px; height: 16px;
-    stroke: currentColor; fill: none;
-    stroke-width: 1.5;
-    stroke-linecap: round; stroke-linejoin: round;
-  }
-  .payment-method-info { flex: 1; }
-  .payment-method-name {
-    font-size: var(--text-sm); font-weight: var(--weight-medium);
-    color: var(--text-primary);
-  }
-  .payment-method-count {
-    font-size: var(--text-xs); color: var(--text-muted);
-  }
-  .payment-method-amount {
-    font-size: var(--text-sm); font-weight: var(--weight-bold);
-    color: var(--text-primary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Backup Preview */
-  .backup-preview { display: flex; flex-direction: column; gap: var(--space-4); }
-  .backup-preview-header {
-    display: flex; align-items: center; gap: var(--space-3);
-    padding: var(--space-4);
-    background: var(--bg-input);
-    border-radius: var(--radius-xl);
-  }
-  .backup-preview-icon {
-    width: 44px; height: 44px;
-    border-radius: var(--radius-xl);
-    background: rgba(var(--accent-rgb),0.1);
-    color: var(--accent);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .backup-preview-icon svg {
-    width: 22px; height: 22px;
-    stroke: currentColor; fill: none; stroke-width: 1.5;
-    stroke-linecap: round; stroke-linejoin: round;
-  }
-  .backup-preview-title {
-    font-size: var(--text-sm); font-weight: var(--weight-semi);
-    color: var(--text-primary);
-  }
-  .backup-preview-sub {
-    font-size: var(--text-xs); color: var(--text-muted);
-  }
-  .backup-stats {
-    display: grid; grid-template-columns: repeat(3,1fr);
-    gap: var(--space-3);
-  }
-  .backup-stat {
-    background: var(--bg-input);
-    border-radius: var(--radius-lg);
-    padding: var(--space-4);
-    text-align: center;
-  }
-  .backup-stat-value {
-    font-size: var(--text-xl); font-weight: var(--weight-bold);
-    color: var(--text-primary);
-  }
-  .backup-stat-label {
-    font-size: var(--text-xs); color: var(--text-muted);
-    margin-top: 2px;
-  }
-  .backup-warning {
-    display: flex; align-items: center; gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    background: rgba(var(--warning-rgb),0.1);
-    border: 1px solid rgba(var(--warning-rgb),0.2);
-    border-radius: var(--radius-lg);
-    font-size: var(--text-xs); color: var(--warning);
-  }
-  .backup-warning svg {
-    width: 14px; height: 14px;
-    stroke: currentColor; fill: none; stroke-width: 1.5;
-    stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0;
-  }
-  .restore-options { display: flex; flex-direction: column; gap: var(--space-3); }
 `;
+document.head.appendChild(recurringStyles);
 
-document.head.appendChild(extraStyles);
+// ── Window exports ─────────────────────────
+window.RecurringManager = RecurringManager;
 
-window.RecurringManager  = RecurringManager;
-window.notificationsPage = notificationsPage;
-
-// ── Auto check recurring on load ───────────
+// ── Auto check on load ─────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
-    if (store.state.user) {
+    if (store && store.state && store.state.user) {
       RecurringManager.checkAndAdd();
     }
   }, 3000);
