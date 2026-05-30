@@ -1,6 +1,6 @@
 # README.md
 
-```markdown
+
 # CoupleSpend - Finance Tracker PWA
 
 > Track, compare and manage spending with your partner.

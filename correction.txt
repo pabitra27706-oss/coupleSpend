@@ -16,7 +16,7 @@ Export:      jsPDF + XLSX + html2canvas CDN
 
 ---
 
-## Complete File Map
+## Complete File Map.
 
 ```
 couplespend/
