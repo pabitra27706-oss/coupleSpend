@@ -11,7 +11,7 @@
 ## Live Demo
 
 ```
-https://pabitra27706-oss.github.io.github.io/couplespend/index.html
+https://pabitra27706-oss.github.io/coupleSpend/
 ```
 
 ---
