@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-accent="indigo">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#6366f1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <title>CoupleSpend</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/transactions.css" />
+  <link rel="stylesheet" href="css/analytics.css" />
+  <link rel="stylesheet" href="css/budget.css" />
+  <link rel="stylesheet" href="css/settings.css" />
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Export Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+<!-- ── Auth Guard Overlay ────────────────── -->
+<div class="auth-guard" id="auth-guard">
+  <div class="auth-guard-inner">
+    <div class="spinner"></div>
+    <span>Loading...</span>
+  </div>
+</div>
+
+<!-- ── App Wrapper ───────────────────────── -->
+<div class="app-wrapper hidden" id="app-wrapper">
+
+  <!-- ── Top Header ─────────────────────── -->
+  <header class="app-header" id="app-header">
+    <div class="app-header-inner">
+
+      <!-- Left: Page Title -->
+      <div class="header-left">
+        <button
+          class="btn btn-icon btn-ghost header-back hidden"
+          id="header-back"
+          onclick="router.back()"
+          aria-label="Go back"
+        >
+          <svg viewBox="0 0 24 24">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <div class="header-title-wrap">
+          <h1 class="header-title" id="header-title">Dashboard</h1>
+          <span class="header-subtitle" id="header-subtitle"></span>
+        </div>
+      </div>
+
+      <!-- Right: Actions -->
+      <div class="header-right" id="header-actions">
+        <!-- Notification Bell -->
+        <button
+          class="btn btn-icon btn-ghost header-action"
+          id="notif-btn"
+          onclick="router.navigate('notifications')"
+          aria-label="Notifications"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notif-badge hidden" id="notif-badge">0</span>
+        </button>
+
+        <!-- Profile Avatar -->
+        <button
+          class="header-avatar"
+          onclick="router.navigate('settings')"
+          aria-label="Profile"
+          id="header-avatar-btn"
+        >
+          <div class="avatar avatar-sm" id="header-avatar">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+          </div>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ── Page Container ─────────────────── -->
+  <main class="app-main" id="app-main">
+
+    <!-- ── Dashboard Page ─────────────── -->
+    <section class="page active" id="page-dashboard">
+      <div class="page-content" id="dashboard-content">
+        <!-- Filled by dashboard.js -->
+        <div class="page-skeleton">
+          <div class="skeleton" style="height:140px;border-radius:16px"></div>
+          <div class="skeleton-row">
+            <div class="skeleton" style="height:100px;flex:1;border-radius:16px"></div>
+            <div class="skeleton" style="height:100px;flex:1;border-radius:16px"></div>
+          </div>
+          <div class="skeleton" style="height:220px;border-radius:16px"></div>
+          <div class="skeleton" style="height:180px;border-radius:16px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Transactions Page ───────────── -->
+    <section class="page" id="page-transactions">
+      <div class="page-content" id="transactions-content">
+        <!-- Filled by transactions.js -->
+      </div>
+    </section>
+
+    <!-- ── Compare Page ───────────────── -->
+    <section class="page" id="page-compare">
+      <div class="page-content" id="compare-content">
+        <!-- Filled by compare.js -->
+      </div>
+    </section>
+
+    <!-- ── Analytics Page ─────────────── -->
+    <section class="page" id="page-analytics">
+      <div class="page-content" id="analytics-content">
+        <!-- Filled by analytics.js -->
+      </div>
+    </section>
+
+    <!-- ── Budget Page ────────────────── -->
+    <section class="page" id="page-budget">
+      <div class="page-content" id="budget-content">
+        <!-- Filled by budget.js -->
+      </div>
+    </section>
+
+    <!-- ── Notifications Page ─────────── -->
+    <section class="page" id="page-notifications">
+      <div class="page-content" id="notifications-content">
+        <!-- Filled by notifications.js -->
+      </div>
+    </section>
+
+    <!-- ── Settings Page ──────────────── -->
+    <section class="page" id="page-settings">
+      <div class="page-content" id="settings-content">
+        <!-- Filled by settings.js -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Bottom Navigation ──────────────── -->
+  <nav class="bottom-nav" id="bottom-nav">
+
+    <button
+      class="nav-item active"
+      data-page="dashboard"
+      onclick="router.navigate('dashboard')"
+      aria-label="Dashboard"
+    >
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </span>
+      <span class="nav-label">Home</span>
+    </button>
+
+    <button
+      class="nav-item"
+      data-page="transactions"
+      onclick="router.navigate('transactions')"
+      aria-label="Transactions"
+    >
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="8" y1="13" x2="16" y2="13"/>
+          <line x1="8" y1="17" x2="16" y2="17"/>
+        </svg>
+      </span>
+      <span class="nav-label">Transactions</span>
+    </button>
+
+    <!-- Center Add Button -->
+    <button
+      class="nav-item nav-add"
+      onclick="openAddTransaction()"
+      aria-label="Add transaction"
+    >
+      <span class="nav-add-icon">
+        <svg viewBox="0 0 24 24">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </span>
+    </button>
+
+    <button
+      class="nav-item"
+      data-page="compare"
+      onclick="router.navigate('compare')"
+      aria-label="Compare"
+    >
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6"  y1="20" x2="6"  y2="14"/>
+        </svg>
+      </span>
+      <span class="nav-label">Compare</span>
+    </button>
+
+    <button
+      class="nav-item"
+      data-page="analytics"
+      onclick="router.navigate('analytics')"
+      aria-label="Analytics"
+    >
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M21 21H4.6A1.6 1.6 0 0 1 3 19.4V3"/>
+          <path d="m7 14 4-4 4 4 4-4"/>
+        </svg>
+      </span>
+      <span class="nav-label">Analytics</span>
+    </button>
+
+  </nav>
+
+</div>
+
+<!-- ── Add Transaction Modal ─────────────── -->
+<div class="modal-overlay hidden" id="modal-add-transaction">
+  <div class="modal modal-bottom" id="modal-add-inner">
+    <div class="modal-handle"></div>
+
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-add-title">Add Transaction</h2>
+      <button
+        class="btn btn-icon btn-ghost"
+        onclick="closeAddTransaction()"
+        aria-label="Close"
+      >
+        <svg viewBox="0 0 24 24">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Type Toggle -->
+      <div class="type-toggle">
+        <button
+          class="type-btn active"
+          id="type-expense"
+          onclick="setTransactionType('expense')"
+        >
+          <svg viewBox="0 0 24 24">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <polyline points="19 12 12 19 5 12"/>
+          </svg>
+          Expense
+        </button>
+        <button
+          class="type-btn"
+          id="type-income"
+          onclick="setTransactionType('income')"
+        >
+          <svg viewBox="0 0 24 24">
+            <line x1="12" y1="19" x2="12" y2="5"/>
+            <polyline points="5 12 12 5 19 12"/>
+          </svg>
+          Income
+        </button>
+      </div>
+
+      <!-- Amount -->
+      <div class="amount-input-wrap">
+        <span class="amount-currency" id="amount-currency-symbol">$</span>
+        <input
+          type="number"
+          class="amount-input"
+          id="tx-amount"
+          placeholder="0.00"
+          step="0.01"
+          min="0"
+          inputmode="decimal"
+        />
+      </div>
+
+      <!-- Category Grid -->
+      <div class="input-group">
+        <label class="input-label">Category</label>
+        <div class="category-grid" id="category-grid">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- Date & Payment Method -->
+      <div class="form-row-2">
+        <div class="input-group">
+          <label class="input-label" for="tx-date">Date</label>
+          <input
+            type="date"
+            class="input"
+            id="tx-date"
+          />
+        </div>
+        <div class="input-group">
+          <label class="input-label" for="tx-payment">Payment</label>
+          <select class="input" id="tx-payment">
+            <option value="card">Card</option>
+            <option value="cash">Cash</option>
+            <option value="transfer">Transfer</option>
+            <option value="wallet">E-Wallet</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="input-group">
+        <label class="input-label" for="tx-description">Description</label>
+        <input
+          type="text"
+          class="input"
+          id="tx-description"
+          placeholder="What was it for?"
+          maxlength="100"
+        />
+      </div>
+
+      <!-- Tags -->
+      <div class="input-group">
+        <label class="input-label">Tags (optional)</label>
+        <div class="tags-input-wrap">
+          <div class="tags-display" id="tags-display"></div>
+          <input
+            type="text"
+            class="tags-input"
+            id="tx-tags-input"
+            placeholder="Add tag, press Enter"
+            onkeydown="handleTagInput(event)"
+          />
+        </div>
+      </div>
+
+      <!-- Save Button -->
+      <button
+        class="btn btn-primary btn-full btn-lg"
+        id="save-transaction-btn"
+        onclick="saveTransaction()"
+      >
+        <span class="btn-text">Save Transaction</span>
+        <span class="spinner spinner-sm hidden" id="save-tx-spinner"></span>
+      </button>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── Global Toast Container ────────────── -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ── Confirm Dialog ─────────────────────── -->
+<div class="modal-overlay hidden" id="modal-confirm">
+  <div class="modal modal-center">
+    <div class="modal-header">
+      <h2 class="modal-title" id="confirm-title">Confirm</h2>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-message" id="confirm-message"></p>
+      <div class="confirm-actions">
+        <button
+          class="btn btn-secondary"
+          onclick="closeConfirm(false)"
+        >Cancel</button>
+        <button
+          class="btn btn-danger"
+          id="confirm-ok-btn"
+          onclick="closeConfirm(true)"
+        >Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scripts: Core ──────────────────────── -->
+<script src="js/core/firebase-config.js"></script>
+<script src="js/core/store.js"></script>
+<script src="js/core/router.js"></script>
+
+<!-- ── Scripts: UI ───────────────────────── -->
+<script src="js/ui/toast.js"></script>
+<script src="js/ui/modal.js"></script>
+<script src="js/ui/charts.js"></script>
+<script src="js/ui/components.js"></script>
+<script src="js/ui/theme.js"></script>
+
+<!-- ── Scripts: Features ─────────────────── -->
+<script src="js/features/transactions.js"></script>
+<script src="js/features/budget.js"></script>
+<script src="js/features/recurring.js"></script>
+<script src="js/features/analytics.js"></script>
+<script src="js/features/compare.js"></script>
+<script src="js/features/notifications.js"></script>
+<script src="js/features/export.js"></script>
+<script src="js/features/share.js"></script>
+<script src="js/features/backup.js"></script>
+
+<!-- ── Scripts: Pages ────────────────────── -->
+<script src="js/pages/dashboard.js"></script>
+<script src="js/pages/settings.js"></script>
+
+<!-- ── App Init ──────────────────────────── -->
+<script>
+// ── Auth Guard ──────────────────────────────
+auth.onAuthStateChanged(async (user) => {
+  const guard   = document.getElementById('auth-guard');
+  const wrapper = document.getElementById('app-wrapper');
+
+  if (!user) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  try {
+    // Load user profile
+    await store.init(user);
+
+    // Apply saved theme
+    applyTheme(store.state.profile.theme || 'dark');
+    applyAccent(store.state.profile.accentColor || 'indigo');
+
+    // Init router
+    router.init();
+
+    // Init transaction modal
+    initTransactionModal();
+
+    // Show app
+    guard.classList.add('hidden');
+    wrapper.classList.remove('hidden');
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .catch(err => console.warn('SW:', err));
+    }
+
+  } catch (err) {
+    console.error('App init error:', err);
+    guard.innerHTML = `
+      <div class="auth-guard-inner">
+        <p style="color:var(--danger)">Failed to load. Please refresh.</p>
+      </div>
+    `;
+  }
+});
+</script>
+
+</body>
+</html>

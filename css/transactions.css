@@ -1,0 +1,172 @@
+/* ─────────────────────────────────────────
+   Transactions Page Styles
+   CoupleSpend App
+───────────────────────────────────────── */
+
+/* ── Filter Bar ───────────────────────── */
+.filter-bar {
+  display:  flex;
+  gap:      var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+  scrollbar-width: none;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  display:       flex;
+  align-items:   center;
+  gap:           var(--space-1);
+  padding:       var(--space-2) var(--space-3);
+  background:    var(--bg-card);
+  border:        1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size:     var(--text-xs);
+  font-weight:   var(--weight-medium);
+  color:         var(--text-secondary);
+  cursor:        pointer;
+  white-space:   nowrap;
+  transition:    var(--transition-fast);
+  font-family:   var(--font-base);
+}
+.filter-chip svg {
+  width:        12px;
+  height:       12px;
+  stroke:       currentColor;
+  fill:         none;
+  stroke-width: 2;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+.filter-chip.active {
+  background:   rgba(var(--accent-rgb), 0.12);
+  border-color: var(--accent);
+  color:        var(--accent);
+}
+.filter-chip:active { transform: scale(0.96); }
+
+/* ── Search Bar ───────────────────────── */
+.search-wrap {
+  position: relative;
+}
+.search-icon {
+  position:      absolute;
+  left:          var(--space-3);
+  top:           50%;
+  transform:     translateY(-50%);
+  color:         var(--text-muted);
+  pointer-events: none;
+  display:       flex;
+}
+.search-icon svg {
+  width:        16px;
+  height:       16px;
+  stroke:       currentColor;
+  fill:         none;
+  stroke-width: 1.5;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+.search-input {
+  padding-left: 2.75rem;
+}
+
+/* ── Date Group ───────────────────────── */
+.date-group {
+  display:        flex;
+  flex-direction: column;
+}
+.date-group-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  padding:         var(--space-3) var(--space-5);
+  background:      var(--bg-base);
+  position:        sticky;
+  top:             0;
+  z-index:         var(--z-base);
+}
+.date-group-label {
+  font-size:   var(--text-xs);
+  font-weight: var(--weight-semi);
+  color:       var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.date-group-total {
+  font-size:   var(--text-xs);
+  font-weight: var(--weight-semi);
+  color:       var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.date-group-card {
+  background:    var(--bg-card);
+  border:        1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow:      hidden;
+}
+
+/* ── Toggle (You / Partner) ───────────── */
+.owner-toggle {
+  display:       flex;
+  background:    var(--bg-card);
+  border:        1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding:       var(--space-1);
+}
+.owner-toggle-btn {
+  flex:          1;
+  padding:       var(--space-2) var(--space-3);
+  border:        2px solid transparent;
+  border-radius: var(--radius-lg);
+  background:    transparent;
+  font-family:   var(--font-base);
+  font-size:     var(--text-sm);
+  font-weight:   var(--weight-medium);
+  color:         var(--text-muted);
+  cursor:        pointer;
+  transition:    var(--transition-fast);
+  text-align:    center;
+}
+.owner-toggle-btn.active-you {
+  background:   rgba(var(--you-rgb), 0.1);
+  border-color: var(--you-color);
+  color:        var(--you-color);
+}
+.owner-toggle-btn.active-her {
+  background:   rgba(var(--her-rgb), 0.1);
+  border-color: var(--her-color);
+  color:        var(--her-color);
+}
+
+/* ── Summary strip ────────────────────── */
+.tx-summary-strip {
+  display:       flex;
+  gap:           var(--space-3);
+  padding:       var(--space-4) var(--space-5);
+  background:    var(--bg-card);
+  border:        1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+.tx-summary-item {
+  display:        flex;
+  flex-direction: column;
+  gap:            2px;
+  flex:           1;
+}
+.tx-summary-item + .tx-summary-item {
+  padding-left:  var(--space-3);
+  border-left:   1px solid var(--border);
+}
+.tx-summary-label {
+  font-size:  var(--text-xs);
+  color:      var(--text-muted);
+}
+.tx-summary-value {
+  font-size:   var(--text-base);
+  font-weight: var(--weight-bold);
+  color:       var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.tx-summary-value.income  { color: var(--success); }
+.tx-summary-value.expense { color: var(--danger); }

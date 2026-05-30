@@ -1,0 +1,270 @@
+/* ─────────────────────────────────────────
+   Analytics Page Styles
+   CoupleSpend App
+───────────────────────────────────────── */
+
+/* ── Period Tabs ──────────────────────── */
+.period-tabs {
+  display:       flex;
+  background:    var(--bg-card);
+  border:        1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding:       var(--space-1);
+  gap:           var(--space-1);
+}
+.period-tab {
+  flex:          1;
+  padding:       var(--space-2) var(--space-3);
+  border:        none;
+  border-radius: var(--radius-lg);
+  background:    transparent;
+  font-family:   var(--font-base);
+  font-size:     var(--text-xs);
+  font-weight:   var(--weight-medium);
+  color:         var(--text-muted);
+  cursor:        pointer;
+  transition:    var(--transition-fast);
+  text-align:    center;
+}
+.period-tab.active {
+  background:  var(--accent);
+  color:       #fff;
+  font-weight: var(--weight-semi);
+}
+
+/* ── Stat Row ─────────────────────────── */
+.analytics-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap:     var(--space-3);
+}
+.analytics-stat-card {
+  background:     var(--bg-card);
+  border:         1px solid var(--border);
+  border-radius:  var(--radius-xl);
+  padding:        var(--space-4);
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-1);
+}
+.analytics-stat-label {
+  font-size:  var(--text-xs);
+  color:      var(--text-muted);
+  font-weight: var(--weight-medium);
+}
+.analytics-stat-value {
+  font-size:   var(--text-xl);
+  font-weight: var(--weight-bold);
+  color:       var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.analytics-stat-change {
+  font-size:  var(--text-xs);
+  display:    flex;
+  align-items: center;
+  gap:        var(--space-1);
+}
+.analytics-stat-change svg {
+  width:        12px;
+  height:       12px;
+  stroke:       currentColor;
+  fill:         none;
+  stroke-width: 2;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+.change-up   { color: var(--danger); }
+.change-down { color: var(--success); }
+.change-flat { color: var(--text-muted); }
+
+/* ── Line Chart ───────────────────────── */
+.line-chart-wrap {
+  position: relative;
+  height:   200px;
+}
+
+/* ── Category Bars ────────────────────── */
+.cat-bar-list {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-3);
+}
+.cat-bar-item {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-2);
+}
+.cat-bar-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+}
+.cat-bar-left {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-2);
+}
+.cat-bar-icon {
+  width:           28px;
+  height:          28px;
+  border-radius:   var(--radius-md);
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+}
+.cat-bar-icon svg {
+  width:        14px;
+  height:       14px;
+  stroke:       currentColor;
+  fill:         none;
+  stroke-width: 1.5;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+.cat-bar-name {
+  font-size:   var(--text-sm);
+  font-weight: var(--weight-medium);
+  color:       var(--text-primary);
+}
+.cat-bar-right {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-2);
+}
+.cat-bar-amount {
+  font-size:   var(--text-sm);
+  font-weight: var(--weight-semi);
+  color:       var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.cat-bar-pct {
+  font-size:  var(--text-xs);
+  color:      var(--text-muted);
+  min-width:  36px;
+  text-align: right;
+}
+.cat-progress {
+  height:        6px;
+  background:    var(--bg-input);
+  border-radius: var(--radius-full);
+  overflow:      hidden;
+}
+.cat-progress-fill {
+  height:        100%;
+  border-radius: var(--radius-full);
+  transition:    width 0.6s ease;
+}
+
+/* ── Trend Chart ──────────────────────── */
+.trend-chart-wrap {
+  position: relative;
+  height:   240px;
+}
+
+/* ── Theme Options ────────────────────── */
+.theme-options {
+  display:               grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:                   var(--space-3);
+}
+.theme-option {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            var(--space-2);
+  background:     none;
+  border:         none;
+  cursor:         pointer;
+  padding:        var(--space-2);
+  border-radius:  var(--radius-lg);
+  transition:     var(--transition-fast);
+}
+.theme-option:active { transform: scale(0.95); }
+.theme-preview {
+  width:         100%;
+  aspect-ratio:  4/3;
+  border-radius: var(--radius-lg);
+  padding:       var(--space-2);
+  display:       flex;
+  flex-direction: column;
+  gap:           var(--space-1);
+  overflow:      hidden;
+  transition:    var(--transition-fast);
+}
+.theme-preview-bar {
+  height:        6px;
+  border-radius: var(--radius-full);
+  width:         60%;
+}
+.theme-preview-lines {
+  display:        flex;
+  flex-direction: column;
+  gap:            4px;
+  margin-top:     auto;
+}
+.theme-preview-lines div {
+  height:        3px;
+  border-radius: var(--radius-full);
+}
+.theme-preview-lines div:first-child { width: 80%; }
+.theme-preview-lines div:last-child  { width: 60%; }
+.theme-option-label {
+  font-size:   var(--text-xs);
+  font-weight: var(--weight-medium);
+  color:       var(--text-secondary);
+}
+.theme-option.active .theme-option-label {
+  color: var(--accent);
+}
+
+/* ── Accent Options ───────────────────── */
+.accent-options {
+  display:   flex;
+  flex-wrap: wrap;
+  gap:       var(--space-3);
+}
+.accent-option {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            var(--space-1);
+  background:     none;
+  border:         none;
+  cursor:         pointer;
+  padding:        var(--space-2);
+  border-radius:  var(--radius-lg);
+  transition:     var(--transition-fast);
+  font-family:    var(--font-base);
+  font-size:      var(--text-xs);
+  color:          var(--text-muted);
+}
+.accent-option.active { color: var(--opt-color, var(--accent)); }
+.accent-option:active { transform: scale(0.92); }
+.accent-dot {
+  width:           32px;
+  height:          32px;
+  border-radius:   var(--radius-full);
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+}
+.accent-dot svg {
+  width:        14px;
+  height:       14px;
+  stroke:       currentColor;
+  fill:         none;
+  stroke-width: 2.5;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+
+/* ── Responsive ───────────────────────── */
+@media (max-width: 360px) {
+  .compare-table-head,
+  .compare-table-row {
+    grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  }
+  .analytics-stats {
+    grid-template-columns: 1fr;
+  }
+}

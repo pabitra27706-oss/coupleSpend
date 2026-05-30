@@ -1,0 +1,347 @@
+/* ─────────────────────────────────────────
+   Login & Register Page Styles
+   CoupleSpend App
+───────────────────────────────────────── */
+
+/* ── Wrapper ──────────────────────────── */
+.auth-wrapper {
+  min-height:      100vh;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  padding:         var(--space-4);
+  position:        relative;
+  overflow:        hidden;
+}
+
+/* ── Background Circles ───────────────── */
+.auth-bg {
+  position: fixed;
+  inset:    0;
+  pointer-events: none;
+  z-index:  0;
+}
+.auth-bg-circle {
+  position:      absolute;
+  border-radius: 50%;
+  filter:        blur(80px);
+  opacity:       0.12;
+}
+.auth-bg-circle-1 {
+  width:      400px;
+  height:     400px;
+  background: var(--accent);
+  top:       -100px;
+  right:     -100px;
+}
+.auth-bg-circle-2 {
+  width:      300px;
+  height:     300px;
+  background: var(--her-color);
+  bottom:    -80px;
+  left:      -80px;
+}
+.auth-bg-circle-3 {
+  width:      200px;
+  height:     200px;
+  background: var(--success);
+  top:        50%;
+  left:       50%;
+  transform:  translate(-50%, -50%);
+}
+
+/* ── Container ────────────────────────── */
+.auth-container {
+  position:      relative;
+  z-index:       1;
+  width:         100%;
+  max-width:     420px;
+  animation:     slideUp 0.4s ease;
+}
+
+/* ── Logo ─────────────────────────────── */
+.auth-logo {
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  gap:             var(--space-3);
+  margin-bottom:   var(--space-8);
+}
+.auth-logo-icon {
+  width:           48px;
+  height:          48px;
+  background:      var(--accent);
+  border-radius:   var(--radius-xl);
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  color:           #fff;
+  box-shadow:      0 8px 24px rgba(var(--accent-rgb), 0.4);
+}
+.auth-logo-icon svg {
+  width:  28px;
+  height: 28px;
+  stroke: currentColor;
+  fill:   none;
+  stroke-width: 1.5;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+.auth-logo-text {
+  display:        flex;
+  flex-direction: column;
+}
+.auth-logo-name {
+  font-size:   var(--text-xl);
+  font-weight: var(--weight-bold);
+  color:       var(--text-primary);
+  line-height: 1.2;
+}
+.auth-logo-tagline {
+  font-size: var(--text-xs);
+  color:     var(--text-muted);
+}
+
+/* ── Tabs ─────────────────────────────── */
+.auth-tabs {
+  display:          flex;
+  background:       var(--bg-card);
+  border:           1px solid var(--border);
+  border-radius:    var(--radius-xl);
+  padding:          var(--space-1);
+  margin-bottom:    var(--space-6);
+  position:         relative;
+}
+.auth-tab {
+  flex:             1;
+  padding:          var(--space-3);
+  border:           none;
+  background:       transparent;
+  color:            var(--text-muted);
+  font-family:      var(--font-base);
+  font-size:        var(--text-sm);
+  font-weight:      var(--weight-medium);
+  cursor:           pointer;
+  border-radius:    var(--radius-lg);
+  transition:       var(--transition-base);
+  position:         relative;
+  z-index:          1;
+}
+.auth-tab.active {
+  color: var(--text-primary);
+}
+.auth-tab-indicator {
+  position:      absolute;
+  top:           var(--space-1);
+  left:          var(--space-1);
+  width:         calc(50% - var(--space-1));
+  height:        calc(100% - var(--space-2));
+  background:    var(--bg-input);
+  border-radius: var(--radius-lg);
+  border:        1px solid var(--border);
+  transition:    transform 0.25s ease;
+  z-index:       0;
+}
+.auth-tab-indicator.right {
+  transform: translateX(100%);
+}
+
+/* ── Form ─────────────────────────────── */
+.auth-form {
+  background:    var(--bg-card);
+  border:        1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  padding:       var(--space-6);
+  display:       flex;
+  flex-direction: column;
+  gap:           var(--space-4);
+  box-shadow:    var(--shadow);
+}
+
+.auth-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap:     var(--space-3);
+}
+
+/* ── Input with Icon ──────────────────── */
+.input-icon-wrap {
+  position: relative;
+}
+.input-icon {
+  position:     absolute;
+  left:         var(--space-3);
+  top:          50%;
+  transform:    translateY(-50%);
+  color:        var(--text-muted);
+  pointer-events: none;
+  display:      flex;
+}
+.input-icon svg {
+  width:  1rem;
+  height: 1rem;
+  stroke: currentColor;
+  fill:   none;
+  stroke-width: 1.5;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+.input-with-icon {
+  padding-left: 2.5rem;
+}
+.input-icon-right {
+  position:  absolute;
+  right:     var(--space-2);
+  top:       50%;
+  transform: translateY(-50%);
+  color:     var(--text-muted);
+  width:     2rem;
+  height:    2rem;
+}
+.input-icon-right svg {
+  width:  1rem;
+  height: 1rem;
+  stroke: currentColor;
+  fill:   none;
+  stroke-width: 1.5;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+
+/* ── Forgot Password ──────────────────── */
+.auth-forgot {
+  display:         flex;
+  justify-content: flex-end;
+  margin-top:      calc(var(--space-1) * -1);
+}
+.auth-forgot button {
+  background:  transparent;
+  border:      none;
+  font-family: var(--font-base);
+  cursor:      pointer;
+  color:       var(--text-muted);
+  transition:  var(--transition-fast);
+  padding:     0;
+}
+.auth-forgot button:hover { color: var(--accent); }
+
+/* ── Error Box ────────────────────────── */
+.auth-error {
+  background:    rgba(var(--danger-rgb), 0.1);
+  border:        1px solid rgba(var(--danger-rgb), 0.2);
+  border-radius: var(--radius-lg);
+  padding:       var(--space-3) var(--space-4);
+  font-size:     var(--text-sm);
+  color:         var(--danger);
+  display:       flex;
+  align-items:   center;
+  gap:           var(--space-2);
+}
+
+/* ── Google Button ────────────────────── */
+.google-icon {
+  width:  1.25rem;
+  height: 1.25rem;
+}
+
+/* ── Password Strength ────────────────── */
+.password-strength {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-3);
+  margin-top:  var(--space-1);
+}
+.strength-bars {
+  display: flex;
+  gap:     var(--space-1);
+  flex:    1;
+}
+.strength-bar {
+  flex:          1;
+  height:        3px;
+  background:    var(--bg-input);
+  border-radius: var(--radius-full);
+  transition:    var(--transition-base);
+}
+.strength-bar.weak     { background: var(--danger); }
+.strength-bar.fair     { background: var(--warning); }
+.strength-bar.good     { background: var(--success); }
+.strength-bar.strong   { background: var(--accent); }
+.strength-label {
+  font-size:  var(--text-xs);
+  color:      var(--text-muted);
+  min-width:  60px;
+  text-align: right;
+}
+
+/* ── Auth Footer ──────────────────────── */
+.auth-footer {
+  text-align:  center;
+  font-size:   var(--text-xs);
+  color:       var(--text-muted);
+  margin-top:  var(--space-4);
+}
+.auth-footer a {
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Toast Notifications ──────────────── */
+.toast-container {
+  position:  fixed;
+  top:       var(--space-4);
+  right:     var(--space-4);
+  z-index:   var(--z-toast);
+  display:   flex;
+  flex-direction: column;
+  gap:       var(--space-2);
+  max-width: 320px;
+}
+.toast {
+  display:       flex;
+  align-items:   flex-start;
+  gap:           var(--space-3);
+  padding:       var(--space-4);
+  background:    var(--bg-card);
+  border:        1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow:    var(--shadow);
+  animation:     slideDown 0.3s ease;
+}
+.toast-icon { flex-shrink: 0; }
+.toast-icon svg {
+  width:  1.25rem;
+  height: 1.25rem;
+  stroke: currentColor;
+  fill:   none;
+  stroke-width: 1.5;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+.toast-content { flex: 1; }
+.toast-title {
+  font-size:   var(--text-sm);
+  font-weight: var(--weight-semi);
+  color:       var(--text-primary);
+}
+.toast-message {
+  font-size:   var(--text-xs);
+  color:       var(--text-secondary);
+  margin-top:  2px;
+}
+.toast.success .toast-icon { color: var(--success); }
+.toast.error   .toast-icon { color: var(--danger); }
+.toast.warning .toast-icon { color: var(--warning); }
+.toast.info    .toast-icon { color: var(--accent); }
+.toast.exit {
+  animation: slideDown 0.3s ease reverse forwards;
+}
+
+/* ── Responsive ───────────────────────── */
+@media (max-width: 420px) {
+  .auth-form { padding: var(--space-5); }
+  .auth-form-row {
+    grid-template-columns: 1fr;
+  }
+}
