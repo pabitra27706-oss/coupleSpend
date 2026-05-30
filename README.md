@@ -11,7 +11,7 @@
 ## Live Demo
 
 ```
-https://yourusername.github.io/couplespend
+https://pabitra27706-oss.github.io.github.io/couplespend
 ```
 
 ---
