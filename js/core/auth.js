@@ -8,10 +8,32 @@ let currentTab = 'login';
 
 // ── On Page Load ─────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
+
+  // Apply saved theme immediately so no flash
+  applySavedTheme();
+
   // Check if user already logged in
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      // Already signed in, go to app
+  // Use a one-time check flag to avoid
+  // double redirect on slow connections
+  let redirected = false;
+  auth.onAuthStateChanged(async (user) => {
+    if (user && !redirected) {
+      redirected = true;
+
+      // ── Ensure Firestore doc exists ──────
+      // This is the critical fix:
+      // Even if register/Google login
+      // failed to write the doc, we
+      // create it here as a safety net
+      // every time the user logs in
+      try {
+        await ensureUserDoc(user);
+      } catch (err) {
+        console.warn('ensureUserDoc failed:', err);
+        // Do not block redirect — app can
+        // still load with partial data
+      }
+
       window.location.href = 'app.html';
     }
   });
@@ -23,10 +45,65 @@ window.addEventListener('DOMContentLoaded', () => {
       checkPasswordStrength(e.target.value);
     });
   }
-
-  // Apply saved theme from localStorage
-  applySavedTheme();
 });
+
+// ── Ensure User Doc Exists ────────────────
+// Called on every login as a safety net.
+// Uses set() with merge:true so it never
+// overwrites existing data — only creates
+// the doc if it is missing.
+async function ensureUserDoc(user) {
+  if (!user?.uid) return;
+
+  const ref  = db.collection(COLLECTIONS.USERS).doc(user.uid);
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    // Doc missing — create it now
+    // This handles:
+    //   1. Register Firestore write failed
+    //   2. Google login skipped new user
+    //   3. Any other silent failure
+    await ref.set({
+      uid:         user.uid,
+      name:        user.displayName || extractNameFromEmail(user.email),
+      partnerName: 'Partner',
+      email:       user.email || '',
+      photoURL:    user.photoURL || null,
+      currency:    'USD',
+      theme:       'dark',
+      accentColor: 'indigo',
+      youColor:    'indigo',
+      herColor:    'pink',
+      partnerId:   null,
+      fcmToken:    null,
+      notifications: {
+        budgetAlert:   true,
+        partnerAdded:  true,
+        weeklyReport:  true,
+        monthlyReport: true,
+        dailyReminder: false
+      },
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    // merge:true means if doc somehow
+    // exists with partial data, we fill
+    // in missing fields without overwriting
+  }
+}
+
+// ── Extract name from email ───────────────
+// Fallback when displayName is null
+// e.g. "john.doe@gmail.com" → "John Doe"
+function extractNameFromEmail(email) {
+  if (!email) return 'User';
+  const local = email.split('@')[0];
+  return local
+    .replace(/[._-]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .trim()
+    || 'User';
+}
 
 // ── Tab Switcher ──────────────────────────
 function switchTab(tab) {
@@ -52,7 +129,6 @@ function switchTab(tab) {
     indicator.classList.add('right');
   }
 
-  // Clear errors on tab switch
   clearErrors();
 }
 
@@ -66,21 +142,26 @@ async function handleLogin(event) {
   const spinner  = document.getElementById('login-spinner');
   const errBox   = document.getElementById('login-error');
 
-  // Validate
   if (!email || !password) {
     showFormError(errBox, 'Please fill in all fields');
     return;
   }
 
-  // Loading state
   setButtonLoading(btn, spinner, true);
   clearErrors();
 
   try {
     const cred = await auth.signInWithEmailAndPassword(email, password);
-    showToast('success', 'Welcome back!', `Signed in as ${cred.user.email}`);
 
-    // Small delay for toast to show
+    // Ensure doc exists on every login
+    // (handles accounts created before
+    // Firestore write was added)
+    await ensureUserDoc(cred.user);
+
+    showToast('success', 'Welcome back!',
+      `Signed in as ${cred.user.email}`
+    );
+
     setTimeout(() => {
       window.location.href = 'app.html';
     }, 800);
@@ -120,25 +201,34 @@ async function handleRegister(event) {
     return;
   }
 
-  // Loading state
   setButtonLoading(btn, spinner, true);
   clearErrors();
 
+  let cred = null;
+
   try {
-    // Create auth account
-    const cred = await auth.createUserWithEmailAndPassword(email, password);
-    const uid  = cred.user.uid;
+    // Step 1: Create auth account
+    cred = await auth.createUserWithEmailAndPassword(email, password);
+    const uid = cred.user.uid;
 
-    // Update display name
-    await cred.user.updateProfile({ displayName: name });
+    // Step 2: Update display name
+    try {
+      await cred.user.updateProfile({ displayName: name });
+    } catch (profileErr) {
+      // Non-fatal — continue
+      console.warn('updateProfile failed:', profileErr);
+    }
 
-    // Save user profile to Firestore
-    await db.collection(COLLECTIONS.USERS).doc(uid).set({
-      uid:         uid,
-      name:        name,
+    // Step 3: Write Firestore doc
+    // Retry up to 3 times in case of
+    // transient network issues
+    const userDocData = {
+      uid,
+      name,
       partnerName: partner || 'Partner',
-      email:       email,
-      currency:    currency,
+      email,
+      photoURL:    null,
+      currency:    currency || 'USD',
       theme:       'dark',
       accentColor: 'indigo',
       youColor:    'indigo',
@@ -152,14 +242,50 @@ async function handleRegister(event) {
         monthlyReport: true,
         dailyReminder: false
       },
-      createdAt:   firebase.firestore.FieldValue.serverTimestamp()
-    });
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
 
-    showToast('success', 'Account created!', 'Welcome to CoupleSpend');
+    let writeSuccess = false;
+    let lastWriteErr = null;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await db
+          .collection(COLLECTIONS.USERS)
+          .doc(uid)
+          .set(userDocData);
+        writeSuccess = true;
+        break;
+      } catch (writeErr) {
+        lastWriteErr = writeErr;
+        console.warn(`Firestore write attempt ${attempt} failed:`, writeErr);
+        // Wait before retry (300ms, 600ms)
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, attempt * 300));
+        }
+      }
+    }
+
+    if (!writeSuccess) {
+      // All 3 attempts failed
+      // Log the error but DO NOT block
+      // the user — ensureUserDoc() will
+      // create the doc on next login
+      console.error('All Firestore write attempts failed:', lastWriteErr);
+      showToast(
+        'warning',
+        'Account created',
+        'Profile will sync on next login'
+      );
+    } else {
+      showToast('success', 'Account created!',
+        'Welcome to CoupleSpend'
+      );
+    }
 
     setTimeout(() => {
       window.location.href = 'app.html';
-    }, 800);
+    }, 900);
 
   } catch (err) {
     console.error('Register error:', err);
@@ -171,7 +297,11 @@ async function handleRegister(event) {
 // ── Google Login ──────────────────────────
 async function handleGoogleLogin() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  const btn      = document.getElementById('google-btn');
+  // Request profile + email scopes
+  provider.addScope('profile');
+  provider.addScope('email');
+
+  const btn = document.getElementById('google-btn');
 
   btn.disabled = true;
   btn.innerHTML = `
@@ -182,35 +312,25 @@ async function handleGoogleLogin() {
   try {
     const result = await auth.signInWithPopup(provider);
     const user   = result.user;
-    const isNew  = result.additionalUserInfo.isNewUser;
 
-    if (isNew) {
-      // Create profile for new Google users
-      await db.collection(COLLECTIONS.USERS).doc(user.uid).set({
-        uid:         user.uid,
-        name:        user.displayName || 'User',
-        partnerName: 'Partner',
-        email:       user.email,
-        photoURL:    user.photoURL || null,
-        currency:    APP_CONFIG.defaultCurrency,
-        theme:       'dark',
-        accentColor: 'indigo',
-        youColor:    'indigo',
-        herColor:    'pink',
-        partnerId:   null,
-        fcmToken:    null,
-        notifications: {
-          budgetAlert:   true,
-          partnerAdded:  true,
-          weeklyReport:  true,
-          monthlyReport: true,
-          dailyReminder: false
-        },
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    }
+    // ── FIX: Do NOT rely on isNewUser ────────
+    // additionalUserInfo.isNewUser is
+    // unreliable across browsers and
+    // Firebase SDK versions.
+    // Instead always call ensureUserDoc()
+    // which uses merge:true and only
+    // creates the doc if it's missing.
+    await ensureUserDoc(user);
 
-    showToast('success', 'Welcome!', `Signed in as ${user.displayName}`);
+    // If user provided a currency preference
+    // via Google we can't know it, so USD
+    // is set as default by ensureUserDoc.
+    // That's fine — user can change in settings.
+
+    showToast('success', 'Welcome!',
+      `Signed in as ${user.displayName || user.email}`
+    );
+
     setTimeout(() => {
       window.location.href = 'app.html';
     }, 800);
@@ -222,16 +342,26 @@ async function handleGoogleLogin() {
     btn.disabled = false;
     btn.innerHTML = `
       <svg class="google-icon" viewBox="0 0 24 24" fill="none">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26
+          1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74
+          3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66
+          -2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84
+          C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35
+          -2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18
+          4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45
+          2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66
+          2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
       </svg>
       Continue with Google
     `;
 
     if (err.code !== 'auth/popup-closed-by-user') {
-      showToast('error', 'Google sign-in failed', getAuthErrorMessage(err.code));
+      showToast('error', 'Google sign-in failed',
+        getAuthErrorMessage(err.code)
+      );
     }
   }
 }
@@ -242,16 +372,22 @@ async function handleForgotPassword() {
   const email      = emailInput?.value.trim();
 
   if (!email) {
-    showToast('warning', 'Enter your email', 'Type your email first then click forgot password');
+    showToast('warning', 'Enter your email',
+      'Type your email first then click forgot password'
+    );
     emailInput?.focus();
     return;
   }
 
   try {
     await auth.sendPasswordResetEmail(email);
-    showToast('success', 'Reset email sent', `Check your inbox at ${email}`);
+    showToast('success', 'Reset email sent',
+      `Check your inbox at ${email}`
+    );
   } catch (err) {
-    showToast('error', 'Failed to send email', getAuthErrorMessage(err.code));
+    showToast('error', 'Failed to send email',
+      getAuthErrorMessage(err.code)
+    );
   }
 }
 
@@ -263,14 +399,17 @@ function togglePassword(inputId, btn) {
   const isText = input.type === 'text';
   input.type   = isText ? 'password' : 'text';
 
-  // Update icon
   const svg = btn.querySelector('svg');
   if (svg) {
     svg.innerHTML = isText
-      ? `<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
+      ? `<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10
+           7-10-7-10-7z"/>
          <circle cx="12" cy="12" r="3"/>`
-      : `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-7-10-7a18.45 18.45 0 0 1 5.06-5.94"/>
-         <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/>
+      : `<path d="M17.94 17.94A10.07 10.07 0 0 1 12
+           20c-7 0-10-7-10-7a18.45 18.45 0 0 1
+           5.06-5.94"/>
+         <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7
+           0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/>
          <line x1="1" y1="1" x2="23" y2="23"/>`;
   }
 }
@@ -282,7 +421,6 @@ function checkPasswordStrength(password) {
 
   if (!bars.length || !label) return;
 
-  // Reset bars
   bars.forEach(b => {
     b.classList.remove('weak', 'fair', 'good', 'strong');
   });
@@ -293,10 +431,10 @@ function checkPasswordStrength(password) {
   }
 
   let score = 0;
-  if (password.length >= 8)             score++;
-  if (/[A-Z]/.test(password))           score++;
-  if (/[0-9]/.test(password))           score++;
-  if (/[^A-Za-z0-9]/.test(password))    score++;
+  if (password.length >= 8)          score++;
+  if (/[A-Z]/.test(password))        score++;
+  if (/[0-9]/.test(password))        score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
 
   const levels = ['weak', 'fair', 'good', 'strong'];
   const labels = ['Weak', 'Fair', 'Good', 'Strong'];
@@ -324,9 +462,11 @@ function setButtonLoading(btn, spinner, loading) {
 function showFormError(errorBox, message) {
   if (!errorBox) return;
   errorBox.innerHTML = `
-    <svg viewBox="0 0 24 24" style="width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.5;flex-shrink:0">
+    <svg viewBox="0 0 24 24"
+      style="width:1rem;height:1rem;stroke:currentColor;
+             fill:none;stroke-width:1.5;flex-shrink:0">
       <circle cx="12" cy="12" r="10"/>
-      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="8"  x2="12"    y2="12"/>
       <line x1="12" y1="16" x2="12.01" y2="16"/>
     </svg>
     <span>${message}</span>
@@ -343,34 +483,49 @@ function clearErrors() {
 
 function getAuthErrorMessage(code) {
   const messages = {
-    'auth/user-not-found':       'No account found with this email',
-    'auth/wrong-password':       'Incorrect password',
-    'auth/email-already-in-use': 'Email is already registered',
-    'auth/weak-password':        'Password is too weak',
-    'auth/invalid-email':        'Invalid email address',
-    'auth/too-many-requests':    'Too many attempts. Try again later',
-    'auth/network-request-failed': 'Network error. Check your connection',
-    'auth/popup-closed-by-user': 'Sign-in popup was closed',
+    'auth/user-not-found':          'No account found with this email',
+    'auth/wrong-password':          'Incorrect password',
+    'auth/email-already-in-use':    'Email is already registered',
+    'auth/weak-password':           'Password is too weak',
+    'auth/invalid-email':           'Invalid email address',
+    'auth/too-many-requests':       'Too many attempts. Try again later',
+    'auth/network-request-failed':  'Network error. Check your connection',
+    'auth/popup-closed-by-user':    'Sign-in popup was closed',
     'auth/cancelled-popup-request': 'Sign-in was cancelled',
-    'auth/invalid-credential':   'Invalid email or password'
+    'auth/invalid-credential':      'Invalid email or password',
+    'auth/user-disabled':           'This account has been disabled',
+    'auth/operation-not-allowed':   'This sign-in method is not enabled'
   };
   return messages[code] || 'An error occurred. Please try again';
 }
 
+// ── Apply Saved Theme ─────────────────────
 function applySavedTheme() {
-  const saved = localStorage.getItem('cs_theme') || 'dark';
-  const accent = localStorage.getItem('cs_accent') || 'indigo';
-  document.documentElement.setAttribute('data-theme', saved);
-  document.documentElement.setAttribute('data-accent', accent);
+  try {
+    const saved  = localStorage.getItem('cs_theme')  || 'dark';
+    const accent = localStorage.getItem('cs_accent') || 'indigo';
+    const you    = localStorage.getItem('cs_you_color');
+    const her    = localStorage.getItem('cs_her_color');
 
-  // Apply theme CSS vars
-  if (window.THEMES && window.THEMES[saved]) {
-    const theme = window.THEMES[saved];
-    Object.entries(theme).forEach(([key, val]) => {
-      if (key.startsWith('--')) {
-        document.documentElement.style.setProperty(key, val);
-      }
-    });
+    document.documentElement.setAttribute('data-theme',  saved);
+    document.documentElement.setAttribute('data-accent', accent);
+    if (you) document.documentElement.setAttribute('data-you', you);
+    if (her) document.documentElement.setAttribute('data-her', her);
+
+    // Apply CSS vars from THEMES object
+    // THEMES may not be loaded yet on
+    // index.html — guard with window check
+    if (window.THEMES && window.THEMES[saved]) {
+      const theme = window.THEMES[saved];
+      Object.entries(theme).forEach(([key, val]) => {
+        if (key.startsWith('--')) {
+          document.documentElement.style.setProperty(key, val);
+        }
+      });
+    }
+  } catch (e) {
+    // localStorage blocked — silent fail
+    console.warn('Could not read saved theme:', e);
   }
 }
 
@@ -380,21 +535,34 @@ function showToast(type, title, message, duration = 3500) {
   if (!container) return;
 
   const icons = {
-    success: `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`,
-    error:   `<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>`,
-    warning: `<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`,
-    info:    `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`
+    success: `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>`,
+    error:   `<circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9"  y1="9" x2="15" y2="15"/>`,
+    warning: `<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94
+                a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9"  x2="12"    y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>`,
+    info:    `<circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8"  x2="12"    y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>`
   };
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.innerHTML = `
     <div class="toast-icon">
-      <svg viewBox="0 0 24 24">${icons[type] || icons.info}</svg>
+      <svg viewBox="0 0 24 24">
+        ${icons[type] || icons.info}
+      </svg>
     </div>
     <div class="toast-content">
       <div class="toast-title">${title}</div>
-      ${message ? `<div class="toast-message">${message}</div>` : ''}
+      ${message
+        ? `<div class="toast-message">${message}</div>`
+        : ''
+      }
     </div>
   `;
 
@@ -406,6 +574,6 @@ function showToast(type, title, message, duration = 3500) {
   }, duration);
 }
 
-// Expose to window for use in other files
-window.showToast = showToast;
-window.switchTab = switchTab;
+// ── Window exports ────────────────────────
+window.showToast  = showToast;
+window.switchTab  = switchTab;

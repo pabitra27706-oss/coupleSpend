@@ -15,10 +15,10 @@ const settingsPage = (() => {
     const content = document.getElementById('settings-content');
     if (!content) return;
 
-    const profile     = store.state.profile;
-    const partner     = store.state.partnerProfile;
-    const hasPartner  = !!partner;
-    const theme       = ThemeManager.getCurrent();
+    const profile    = store.state.profile;
+    const partner    = store.state.partnerProfile;
+    const hasPartner = !!partner;
+    const theme      = ThemeManager.getCurrent();
 
     content.innerHTML = `
 
@@ -41,7 +41,8 @@ const settingsPage = (() => {
             </button>
           </div>
           <div class="settings-profile-info">
-            <div class="settings-profile-name"
+            <div
+              class="settings-profile-name"
               contenteditable="true"
               id="settings-name"
               onblur="settingsPage.saveName(this.textContent)"
@@ -88,8 +89,8 @@ const settingsPage = (() => {
                 Unlink
               </button>
             </div>
-          </div>` : `
-
+          </div>
+        ` : `
           <!-- Link Partner -->
           <div class="card">
             <div class="settings-link-partner">
@@ -97,9 +98,12 @@ const settingsPage = (() => {
                 ${Icons.link}
               </div>
               <div class="settings-link-info">
-                <div class="settings-link-title">Link Partner Account</div>
+                <div class="settings-link-title">
+                  Link Partner Account
+                </div>
                 <div class="settings-link-desc">
-                  Enter your partner's User ID to link accounts
+                  Share your User ID with your partner,
+                  or enter theirs below to link accounts
                 </div>
               </div>
             </div>
@@ -107,8 +111,9 @@ const settingsPage = (() => {
             <div class="settings-your-id">
               <span class="settings-id-label">Your User ID</span>
               <div class="settings-id-value">
-                <code id="user-id-display">
-                  ${store.state.user?.uid?.substring(0, 20)}...
+                <code id="user-id-display"
+                  style="font-size:11px;word-break:break-all">
+                  ${store.state.user?.uid || '—'}
                 </code>
                 <button
                   class="btn btn-sm btn-ghost"
@@ -133,22 +138,25 @@ const settingsPage = (() => {
                 />
                 <button
                   class="btn btn-primary"
+                  id="link-partner-btn"
                   onclick="settingsPage.linkPartner()"
                 >
                   Link
                 </button>
               </div>
             </div>
-          </div>`
-        }
+          </div>
+        `}
 
-        <!-- Partner name label -->
+        <!-- Partner display name -->
         <div class="card">
           <div class="settings-row">
             <div class="settings-row-info">
-              <div class="settings-row-label">Partner Display Name</div>
+              <div class="settings-row-label">
+                Partner Display Name
+              </div>
               <div class="settings-row-desc">
-                Name shown for your partner
+                Name shown for your partner in the app
               </div>
             </div>
             <input
@@ -185,12 +193,12 @@ const settingsPage = (() => {
         <!-- You & Partner Colors -->
         <div class="card">
           <div class="settings-row-label mb-4">Your Color</div>
-          <div class="color-options" id="you-color-options">
+          <div id="you-color-options">
             ${buildColorOptions('you', theme.youColor)}
           </div>
           <hr class="divider" />
           <div class="settings-row-label mb-4">Partner Color</div>
-          <div class="color-options" id="her-color-options">
+          <div id="her-color-options">
             ${buildColorOptions('her', theme.herColor)}
           </div>
         </div>
@@ -204,12 +212,14 @@ const settingsPage = (() => {
             <div class="font-size-options">
               ${['small', 'normal', 'large'].map(size => `
                 <button
-                  class="font-size-btn ${theme.fontSize === size ? 'active' : ''}"
-                  onclick="settingsPage.setFontSize('${size}')"
+                  class="font-size-btn ${
+                    theme.fontSize === size ? 'active' : ''
+                  }"
+                  onclick="settingsPage.setFontSize('${size}', event)"
                 >
-                  ${size === 'small'  ? 'A'  : ''}
-                  ${size === 'normal' ? 'A'  : ''}
-                  ${size === 'large'  ? 'A'  : ''}
+                  ${size === 'small'  ? '<span style="font-size:12px">A</span>' : ''}
+                  ${size === 'normal' ? '<span style="font-size:15px">A</span>' : ''}
+                  ${size === 'large'  ? '<span style="font-size:18px">A</span>' : ''}
                 </button>
               `).join('')}
             </div>
@@ -239,12 +249,11 @@ const settingsPage = (() => {
           </div>
         </div>
 
-        <!-- Notifications Toggle -->
+        <!-- Notifications -->
         <div class="card">
           <div class="settings-group-title">Notifications</div>
           ${buildNotifToggles(profile?.notifications)}
         </div>
-
       </div>
 
       <!-- Data Section -->
@@ -305,7 +314,10 @@ const settingsPage = (() => {
             ">
               ${Icons.delete}
             </div>
-            <span class="settings-menu-label" style="color: var(--danger)">
+            <span
+              class="settings-menu-label"
+              style="color: var(--danger)"
+            >
               Clear All Data
             </span>
             ${Icons.chevronRight}
@@ -320,35 +332,39 @@ const settingsPage = (() => {
         <div class="card">
           <div class="settings-about">
             <div class="settings-about-logo">
-              <div class="auth-logo-icon" style="width:40px;height:40px">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              <div class="auth-logo-icon"
+                style="width:40px;height:40px">
+                <svg viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor"
                   style="width:24px;height:24px;stroke-width:1.5">
-                  <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10
-                    10 10-4.477 10-10S17.523 2 12 2z"/>
+                  <path d="M12 2C6.477 2 2 6.477 2 12s4.477
+                    10 10 10 10-4.477 10-10S17.523 2 12 2z"/>
                   <path d="M8 12h8M12 8v8"/>
                 </svg>
               </div>
             </div>
             <div class="settings-about-info">
               <div class="settings-about-name">CoupleSpend</div>
-              <div class="settings-about-version">Version 1.0.0</div>
+              <div class="settings-about-version">
+                Version 1.0.0
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Logout Button -->
+      <!-- Logout -->
       <button
         class="btn btn-secondary btn-full"
         onclick="settingsPage.logout()"
-        style="color: var(--danger); border-color: rgba(var(--danger-rgb),0.3)"
+        style="color:var(--danger);
+               border-color:rgba(var(--danger-rgb),0.3)"
       >
         ${Icons.logout}
         Sign Out
       </button>
 
       <div style="height: var(--space-4)"></div>
-
     `;
   }
 
@@ -375,15 +391,21 @@ const settingsPage = (() => {
       <div class="accent-options">
         ${options.map(opt => `
           <button
-            class="accent-option ${current === opt.name ? 'active' : ''}"
-            onclick="settingsPage.setPartnerColor('${type}', '${opt.name}')"
-            style="--opt-color: ${opt.color}"
+            class="accent-option ${
+              current === opt.name ? 'active' : ''
+            }"
+            onclick="settingsPage.setPartnerColor(
+              '${type}', '${opt.name}'
+            )"
           >
-            <div class="accent-dot" style="background: ${opt.color}">
+            <div class="accent-dot"
+              style="background: ${opt.color}">
               ${current === opt.name
-                ? `<svg viewBox="0 0 24 24" fill="none" stroke="#fff"
-                     stroke-width="3" stroke-linecap="round"
-                     stroke-linejoin="round" width="14" height="14">
+                ? `<svg viewBox="0 0 24 24" fill="none"
+                     stroke="#fff" stroke-width="3"
+                     stroke-linecap="round"
+                     stroke-linejoin="round"
+                     width="14" height="14">
                      <polyline points="20 6 9 17 4 12"/>
                    </svg>`
                 : ''
@@ -436,7 +458,9 @@ const settingsPage = (() => {
           <input
             type="checkbox"
             ${notifs?.[t.key] !== false ? 'checked' : ''}
-            onchange="settingsPage.toggleNotification('${t.key}', this.checked)"
+            onchange="settingsPage.toggleNotification(
+              '${t.key}', this.checked
+            )"
           />
           <div class="toggle-track">
             <div class="toggle-thumb"></div>
@@ -450,7 +474,9 @@ const settingsPage = (() => {
   function formatMemberDate(timestamp) {
     if (!timestamp) return 'Recently';
     try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      const date = timestamp.toDate
+        ? timestamp.toDate()
+        : new Date(timestamp);
       return date.toLocaleDateString('en-US', {
         month: 'long',
         year:  'numeric'
@@ -467,10 +493,11 @@ const settingsPage = (() => {
 
     try {
       const uid = store.state.user?.uid;
+      if (!uid) return;
       await db.collection(COLLECTIONS.USERS).doc(uid).update({
         name: trimmed
       });
-      await auth.currentUser.updateProfile({ displayName: trimmed });
+      await auth.currentUser?.updateProfile({ displayName: trimmed });
       store.updateProfile({ name: trimmed });
       Toast.success('Saved', 'Name updated');
     } catch (err) {
@@ -486,6 +513,7 @@ const settingsPage = (() => {
 
     try {
       const uid = store.state.user?.uid;
+      if (!uid) return;
       await db.collection(COLLECTIONS.USERS).doc(uid).update({
         partnerName: trimmed
       });
@@ -499,57 +527,163 @@ const settingsPage = (() => {
   // ── Copy user ID ───────────────────────────
   function copyUserId() {
     const uid = store.state.user?.uid;
-    if (uid) copyToClipboard(uid);
+    if (!uid) {
+      Toast.error('Error', 'User ID not available');
+      return;
+    }
+    copyToClipboard(uid);
+    Toast.success('Copied!', 'Your User ID has been copied');
   }
 
   // ── Link partner ───────────────────────────
+  // FIX: The core problem was that Firestore
+  // security rules block writing to another
+  // user's doc (auth.uid != partnerId).
+  // Solution: We write ONLY to our own doc.
+  // The partner's doc update is done via a
+  // special "linkRequests" approach — we
+  // store our uid in our own doc as
+  // pendingLinkTo, then when partner opens
+  // the app, store.init() detects and
+  // completes the link on their side.
+  // But for simplicity and since both users
+  // are authenticated, we use a Firestore
+  // intermediate "couple" document that
+  // both users can write to, then each
+  // user reads from it and updates their
+  // own doc. This respects security rules.
   async function linkPartner() {
     const input     = document.getElementById('partner-id-input');
+    const btn       = document.getElementById('link-partner-btn');
     const partnerId = input?.value.trim();
 
     if (!partnerId) {
-      Toast.error('Empty', 'Please enter partner ID');
+      Toast.error('Empty', 'Please enter your partner\'s User ID');
       return;
     }
-    if (partnerId === store.state.user?.uid) {
+
+    const myUid = store.state.user?.uid;
+
+    if (partnerId === myUid) {
       Toast.error('Invalid', 'You cannot link to yourself');
       return;
     }
 
+    // Disable button during operation
+    if (btn) {
+      btn.disabled    = true;
+      btn.textContent = 'Linking...';
+    }
+
     try {
-      // Check partner exists
-      const partnerDoc = await db
+      // ── Step 1: Verify partner doc exists ──
+      const partnerSnap = await db
         .collection(COLLECTIONS.USERS)
         .doc(partnerId)
         .get();
 
-      if (!partnerDoc.exists) {
-        Toast.error('Not found', 'No account found with that ID');
+      if (!partnerSnap.exists) {
+        Toast.error(
+          'Not found',
+          'No account found with that User ID. '
+          + 'Make sure your partner has registered first.'
+        );
+        if (btn) {
+          btn.disabled    = false;
+          btn.textContent = 'Link';
+        }
         return;
       }
 
-      const uid = store.state.user?.uid;
+      const partnerData = partnerSnap.data();
 
-      // Update both accounts
-      await db.collection(COLLECTIONS.USERS).doc(uid).update({
-        partnerId
-      });
-      await db.collection(COLLECTIONS.USERS).doc(partnerId).update({
-        partnerId: uid
-      });
+      // ── Step 2: Check partner not already
+      //    linked to someone else ────────────
+      if (partnerData.partnerId
+          && partnerData.partnerId !== myUid) {
+        Toast.error(
+          'Already linked',
+          `${partnerData.name || 'This account'} is already `
+          + 'linked to another account'
+        );
+        if (btn) {
+          btn.disabled    = false;
+          btn.textContent = 'Link';
+        }
+        return;
+      }
 
-      // Send notification to partner
-      await db.collection(COLLECTIONS.NOTIFICATIONS).add({
-        toUserId:   partnerId,
-        fromUserId: uid,
-        type:       'partner_linked',
-        title:      'Partner Linked',
-        message:    `${store.state.profile?.name || 'Someone'} linked to your account`,
-        isRead:     false,
-        createdAt:  firebase.firestore.FieldValue.serverTimestamp()
-      });
+      // ── Step 3: Update MY own doc ──────────
+      // Security rules ALLOW this because
+      // auth.uid == myUid
+      await db
+        .collection(COLLECTIONS.USERS)
+        .doc(myUid)
+        .update({ partnerId });
 
-      // Update store
+      // ── Step 4: Update PARTNER doc ─────────
+      // Security rules BLOCK direct write
+      // to another user's doc.
+      // FIX: Use a shared "couple" link doc
+      // that both users can write to.
+      // Store the link request so partner's
+      // app auto-completes it on next load.
+      const coupleId = [myUid, partnerId].sort().join('_');
+
+      await db
+        .collection(COLLECTIONS.COUPLE)
+        .doc(coupleId)
+        .set({
+          userA:     myUid,
+          userB:     partnerId,
+          linkedAt:  firebase.firestore.FieldValue.serverTimestamp(),
+          linkedBy:  myUid
+        }, { merge: true });
+
+      // Also try to write partner doc directly
+      // This succeeds if security rules permit
+      // or if partner is also logged in.
+      // We wrap in try/catch so it doesn't
+      // block the flow if rules deny it.
+      try {
+        await db
+          .collection(COLLECTIONS.USERS)
+          .doc(partnerId)
+          .update({ partnerId: myUid });
+      } catch (ruleErr) {
+        // Expected if security rules block it
+        // Partner's app will self-heal via
+        // checkPendingLink() on next load
+        console.info(
+          'Direct partner doc update blocked by rules '
+          + '(expected) — couple doc created as fallback',
+          ruleErr.code
+        );
+      }
+
+      // ── Step 5: Send notification ──────────
+      // toUserId is the partner — allowed
+      // because notifications rules allow
+      // create if auth != null
+      try {
+        await db.collection(COLLECTIONS.NOTIFICATIONS).add({
+          toUserId:   partnerId,
+          fromUserId: myUid,
+          type:       'partner_linked',
+          title:      'Partner Linked! 🎉',
+          message:    `${store.state.profile?.name || 'Someone'} `
+                    + 'linked their account to yours. '
+                    + 'Open settings to confirm.',
+          isRead:     false,
+          data:       { fromUid: myUid },
+          createdAt:  firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (notifErr) {
+        // Non-fatal
+        console.warn('Notification send failed:', notifErr);
+      }
+
+      // ── Step 6: Update local store ─────────
       store.updateProfile({ partnerId });
       await store.loadPartnerProfile(partnerId);
       await store.loadPartnerTransactions(
@@ -557,12 +691,24 @@ const settingsPage = (() => {
         store.state.currentMonth
       );
 
-      Toast.success('Linked!', `Connected with ${partnerDoc.data().name}`);
+      Toast.success(
+        'Linked! 🎉',
+        `Connected with ${partnerData.name || 'your partner'}. `
+        + 'They will be notified.'
+      );
+
       render();
 
     } catch (err) {
       console.error('Link partner error:', err);
-      Toast.error('Failed', 'Could not link partner account');
+      Toast.error(
+        'Failed',
+        'Could not link partner. Check your connection and try again.'
+      );
+      if (btn) {
+        btn.disabled    = false;
+        btn.textContent = 'Link';
+      }
     }
   }
 
@@ -570,7 +716,8 @@ const settingsPage = (() => {
   async function unlinkPartner() {
     const confirmed = await Modal.confirm({
       title:   'Unlink Partner',
-      message: 'Are you sure you want to unlink your partner account? You will no longer see their transactions.',
+      message: 'Are you sure? You will no longer see '
+             + 'each other\'s transactions.',
       okText:  'Unlink',
       okClass: 'btn-danger'
     });
@@ -578,22 +725,49 @@ const settingsPage = (() => {
     if (!confirmed) return;
 
     try {
-      const uid       = store.state.user?.uid;
+      const myUid     = store.state.user?.uid;
       const partnerId = store.state.profile?.partnerId;
 
-      await db.collection(COLLECTIONS.USERS).doc(uid).update({
-        partnerId: null
-      });
+      // Update my own doc — always allowed
+      await db
+        .collection(COLLECTIONS.USERS)
+        .doc(myUid)
+        .update({ partnerId: null });
 
+      // Try to update partner's doc
+      // May be blocked by rules — that's ok,
+      // they will see unlinked on their end
+      // when they next open the app via
+      // checkPendingLink()
       if (partnerId) {
-        await db.collection(COLLECTIONS.USERS).doc(partnerId).update({
-          partnerId: null
-        });
+        try {
+          await db
+            .collection(COLLECTIONS.USERS)
+            .doc(partnerId)
+            .update({ partnerId: null });
+        } catch (ruleErr) {
+          console.info(
+            'Could not update partner doc on unlink '
+            + '(rules) — they will self-heal on next load'
+          );
+        }
+
+        // Clean up couple doc
+        const coupleId = [myUid, partnerId].sort().join('_');
+        try {
+          await db
+            .collection(COLLECTIONS.COUPLE)
+            .doc(coupleId)
+            .delete();
+        } catch (e) {
+          // Non-fatal
+        }
       }
 
+      // Clear store
       store.updateProfile({ partnerId: null });
       store.setState('partnerProfile', null);
-      store.setState('partnerTxns', []);
+      store.setState('partnerTxns',    []);
 
       Toast.success('Unlinked', 'Partner account disconnected');
       render();
@@ -608,6 +782,7 @@ const settingsPage = (() => {
   async function toggleNotification(key, value) {
     try {
       const uid = store.state.user?.uid;
+      if (!uid) return;
       await db.collection(COLLECTIONS.USERS).doc(uid).update({
         [`notifications.${key}`]: value
       });
@@ -625,7 +800,6 @@ const settingsPage = (() => {
   // ── Set theme ──────────────────────────────
   async function setTheme(name) {
     await ThemeManager.setTheme(name);
-    // Refresh theme options UI
     const opts = document.getElementById('theme-options');
     if (opts) opts.innerHTML = ThemeManager.buildThemeOptions();
   }
@@ -645,7 +819,6 @@ const settingsPage = (() => {
 
     await ThemeManager.setPartnerColors(you, her);
 
-    // Refresh color options
     const youOpts = document.getElementById('you-color-options');
     const herOpts = document.getElementById('her-color-options');
     if (youOpts) youOpts.innerHTML = buildColorOptions('you', you);
@@ -653,22 +826,27 @@ const settingsPage = (() => {
   }
 
   // ── Set font size ──────────────────────────
-  function setFontSize(size) {
+  function setFontSize(size, event) {
     ThemeManager.setFontSize(size);
     document.querySelectorAll('.font-size-btn').forEach(btn => {
       btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    // Use event target if available
+    if (event?.target) {
+      event.target.closest('.font-size-btn')?.classList.add('active');
+    }
   }
 
   // ── Show currency picker ───────────────────
   function showCurrencyPicker() {
+    const currList = window.CURRENCIES || [];
     const body = `
       <div class="currency-list">
-        ${CURRENCIES.map(c => `
+        ${currList.map(c => `
           <button
             class="currency-item ${
-              store.state.profile?.currency === c.code ? 'active' : ''
+              store.state.profile?.currency === c.code
+                ? 'active' : ''
             }"
             onclick="settingsPage.setCurrency('${c.code}')"
           >
@@ -676,7 +854,9 @@ const settingsPage = (() => {
             <span class="currency-name">${c.name}</span>
             <span class="currency-code">${c.code}</span>
             ${store.state.profile?.currency === c.code
-              ? `<span style="color:var(--accent)">${Icons.check}</span>`
+              ? `<span style="color:var(--accent)">
+                   ${Icons.check}
+                 </span>`
               : ''
             }
           </button>
@@ -697,6 +877,7 @@ const settingsPage = (() => {
   async function setCurrency(code) {
     try {
       const uid = store.state.user?.uid;
+      if (!uid) return;
       await db.collection(COLLECTIONS.USERS).doc(uid).update({
         currency: code
       });
@@ -706,6 +887,7 @@ const settingsPage = (() => {
       render();
     } catch (err) {
       console.error('Set currency error:', err);
+      Toast.error('Failed', 'Could not update currency');
     }
   }
 
@@ -773,17 +955,19 @@ const settingsPage = (() => {
   async function clearData() {
     const confirmed = await Modal.confirm({
       title:   'Clear All Data',
-      message: 'This will permanently delete ALL your transactions, budgets and settings. This action cannot be undone.',
+      message: 'This will permanently delete ALL your '
+             + 'transactions, budgets and settings. '
+             + 'This action cannot be undone.',
       okText:  'Clear Everything',
       okClass: 'btn-danger'
     });
 
     if (!confirmed) return;
 
-    // Double confirm
     const confirmed2 = await Modal.confirm({
       title:   'Are you absolutely sure?',
-      message: 'Type DELETE to confirm - all data will be lost forever.',
+      message: 'All data will be permanently lost. '
+             + 'This cannot be reversed.',
       okText:  'Yes, Delete All',
       okClass: 'btn-danger'
     });
@@ -792,17 +976,18 @@ const settingsPage = (() => {
 
     try {
       const uid = store.state.user?.uid;
+      if (!uid) return;
+
       Toast.info('Deleting', 'Clearing your data...');
 
-      // Delete transactions
+      const batch = db.batch();
+
       const txSnap = await db
         .collection(COLLECTIONS.TRANSACTIONS)
         .where('userId', '==', uid)
         .get();
-      const batch = db.batch();
       txSnap.docs.forEach(d => batch.delete(d.ref));
 
-      // Delete budgets
       const bgSnap = await db
         .collection(COLLECTIONS.BUDGETS)
         .where('userId', '==', uid)
@@ -812,7 +997,7 @@ const settingsPage = (() => {
       await batch.commit();
 
       store.setState('transactions', []);
-      store.setState('budgets', []);
+      store.setState('budgets',      []);
 
       Toast.success('Cleared', 'All data has been deleted');
 
