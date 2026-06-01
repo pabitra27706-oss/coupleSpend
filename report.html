@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-accent="indigo">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#6366f1" />
+  <meta name="robots" content="noindex, nofollow" />
+
+  <title>CoupleSpend Report</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+
+  <!-- CSS — reuse existing design system -->
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+
+  <!-- Firebase (public read — no auth needed) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    /* ── Page shell ───────────────────────── */
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-base);
+      padding: 0 0 48px;
+      margin: 0;
+    }
+
+    /* ── Top bar ──────────────────────────── */
+    .report-topbar {
+      width: 100%;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-sizing: border-box;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .report-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .report-logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .report-logo-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: #fff;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .report-logo-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .report-open-btn {
+      padding: 8px 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .report-open-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    /* ── Content wrapper ──────────────────── */
+    .report-wrap {
+      width: 100%;
+      max-width: 520px;
+      padding: 24px 16px;
+      box-sizing: border-box;
+    }
+
+    /* ── Loading state ────────────────────── */
+    .report-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 80px 20px;
+      color: var(--text-muted);
+    }
+
+    .report-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Error / expired states ───────────── */
+    .report-error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 80px 20px;
+      text-align: center;
+    }
+
+    .report-error-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(239,68,68,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .report-error-icon svg {
+      width: 32px;
+      height: 32px;
+      stroke: var(--danger);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    .report-error-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .report-error-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* ── Report header ────────────────────── */
+    .report-header {
+      background: var(--accent);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .report-header::before {
+      content: '';
+      position: absolute;
+      top: -30px;
+      right: -30px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .report-header::after {
+      content: '';
+      position: absolute;
+      bottom: -40px;
+      left: -20px;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .report-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .report-month {
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      margin: 0 0 4px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .report-generated {
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+      margin: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .report-expiry {
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+      margin: 8px 0 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Person cards ─────────────────────── */
+    .report-people {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .report-person-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .report-person-card.you-card {
+      border-color: var(--you-color, #6366f1);
+    }
+
+    .report-person-card.her-card {
+      border-color: var(--her-color, #ec4899);
+    }
+
+    .report-person-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .you-card .report-person-avatar {
+      background: var(--you-color, #6366f1);
+    }
+
+    .her-card .report-person-avatar {
+      background: var(--her-color, #ec4899);
+    }
+
+    .report-person-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin: 0 0 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .report-person-spend {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin: 0 0 2px;
+    }
+
+    .report-person-income {
+      font-size: 12px;
+      color: var(--success);
+      margin: 0;
+    }
+
+    /* ── Combined card ────────────────────── */
+    .report-combined-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .report-combined-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin: 0 0 6px;
+    }
+
+    .report-combined-amount {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin: 0 0 16px;
+    }
+
+    /* Split bar */
+    .report-split-bar {
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      margin-bottom: 8px;
+      background: var(--bg-input);
+    }
+
+    .report-split-you {
+      background: var(--you-color, #6366f1);
+      border-radius: 4px 0 0 4px;
+      transition: width 0.6s ease;
+    }
+
+    .report-split-her {
+      background: var(--her-color, #ec4899);
+      border-radius: 0 4px 4px 0;
+      flex: 1;
+    }
+
+    .report-split-labels {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .report-split-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .report-split-label span {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* ── Category breakdown ───────────────── */
+    .report-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 0 0 12px;
+    }
+
+    .report-cat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 4px 0;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .report-cat-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: center;
+      padding: 12px 16px;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .report-cat-row:last-child {
+      border-bottom: none;
+    }
+
+    .report-cat-head {
+      background: var(--bg-input);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .report-cat-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .report-cat-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .report-cat-val {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: right;
+    }
+
+    .report-cat-val.you {
+      color: var(--you-color, #6366f1);
+    }
+
+    .report-cat-val.her {
+      color: var(--her-color, #ec4899);
+    }
+
+    /* ── Footer ───────────────────────────── */
+    .report-footer {
+      text-align: center;
+      padding: 24px 16px 0;
+    }
+
+    .report-footer-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 0 0 12px;
+    }
+
+    .report-footer-app {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    /* ── Skeleton loaders ─────────────────── */
+    .rpt-skeleton {
+      background: var(--bg-card);
+      border-radius: 14px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .rpt-skeleton::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255,255,255,0.04) 50%,
+        transparent 100%
+      );
+      animation: skeleton-sweep 1.4s ease infinite;
+      background-size: 200% 100%;
+    }
+
+    @keyframes skeleton-sweep {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Top bar ──────────────────────────── -->
+  <div class="report-topbar">
+    <div class="report-logo">
+      <div class="report-logo-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10
+                   10 10 10-4.48 10-10S17.52 2 12 2z"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+      </div>
+      <span class="report-logo-name">CoupleSpend</span>
+    </div>
+    <a class="report-open-btn" href="index.html">
+      <svg viewBox="0 0 24 24" width="14" height="14"
+           stroke="currentColor" fill="none"
+           stroke-width="2.5" stroke-linecap="round">
+        <path d="M15 3h6v6M10 14L21 3M18 13v6a2 2
+                 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2
+                 0 0 1 2-2h6"/>
+      </svg>
+      Open App
+    </a>
+  </div>
+
+  <!-- ── Report content area ──────────────── -->
+  <div class="report-wrap" id="report-wrap">
+
+    <!-- Loading skeleton shown while fetching -->
+    <div id="report-loading" class="report-loading">
+      <div class="report-spinner"></div>
+      <span style="font-size:14px">Loading report...</span>
+    </div>
+
+    <!-- Actual content injected here by JS -->
+    <div id="report-content" style="display:none"></div>
+
+  </div>
+
+  <!-- Firebase config (must match app) -->
+  <script src="js/core/firebase-config.js"></script>
+
+  <script>
+  // ── Report Viewer Logic ──────────────────
+  (async function initReport() {
+
+    const loadingEl = document.getElementById('report-loading');
+    const contentEl = document.getElementById('report-content');
+
+    // ── Helper: format month string ──────────
+    function formatMonth(monthStr) {
+      if (!monthStr) return '';
+      const [year, month] = monthStr.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+      return date.toLocaleDateString('en-US', {
+        month: 'long',
+        year:  'numeric'
+      });
+    }
+
+    // ── Helper: format currency amount ────────
+    function formatAmount(amount, currency) {
+      const curr = (window.CURRENCIES || []).find(
+        c => c.code === (currency || 'USD')
+      );
+      const symbol = curr?.symbol || '$';
+      return `${symbol}${(amount || 0).toFixed(2)}`;
+    }
+
+    // ── Helper: get category info ─────────────
+    function getCatInfo(catId) {
+      const cats = window.CATEGORIES || [];
+      return cats.find(c => c.id === catId) || {
+        label: catId || 'Other',
+        color: '#94a3b8'
+      };
+    }
+
+    // ── Helper: initials from name ────────────
+    function getInitials(name) {
+      if (!name) return '?';
+      return name.trim()
+        .split(' ')
+        .map(w => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+
+    // ── Helper: format timestamp ──────────────
+    function formatDate(ts) {
+      if (!ts) return '';
+      const date = ts.toDate ? ts.toDate() : new Date(ts);
+      return date.toLocaleDateString('en-US', {
+        year:  'numeric',
+        month: 'long',
+        day:   'numeric'
+      });
+    }
+
+    // ── Show error state ──────────────────────
+    function showError(title, desc) {
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+      contentEl.innerHTML = `
+        <div class="report-error">
+          <div class="report-error-icon">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8"  x2="12"    y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <p class="report-error-title">${title}</p>
+          <p class="report-error-desc">${desc}</p>
+          <a href="index.html"
+             style="margin-top:8px;padding:10px 24px;
+                    background:var(--accent);color:#fff;
+                    border-radius:8px;font-size:14px;
+                    font-weight:600;text-decoration:none">
+            Open CoupleSpend
+          </a>
+        </div>
+      `;
+    }
+
+    // ── Read ?id= from URL ────────────────────
+    const params   = new URLSearchParams(window.location.search);
+    const reportId = params.get('id');
+
+    if (!reportId) {
+      showError(
+        'No report found',
+        'This link is missing a report ID. '
+        + 'Please ask for a new share link.'
+      );
+      return;
+    }
+
+    // ── Fetch from Firestore ──────────────────
+    // Security rules allow read: if true
+    // so no auth needed
+    let reportDoc;
+    try {
+      const snap = await db
+        .collection(COLLECTIONS.REPORTS)
+        .doc(reportId)
+        .get();
+
+      if (!snap.exists) {
+        showError(
+          'Report not found',
+          'This report does not exist or has been deleted. '
+          + 'Ask the owner to generate a new link.'
+        );
+        return;
+      }
+
+      reportDoc = snap.data();
+
+    } catch (err) {
+      console.error('Firestore error:', err);
+      showError(
+        'Failed to load report',
+        'Could not connect to the database. '
+        + 'Check your internet connection and try again.'
+      );
+      return;
+    }
+
+    // ── Check expiry ──────────────────────────
+    const now      = new Date();
+    const expiresAt = reportDoc.expiresAt?.toDate
+      ? reportDoc.expiresAt.toDate()
+      : new Date(reportDoc.expiresAt);
+
+    if (now > expiresAt) {
+      showError(
+        'Report expired',
+        `This shared report expired on ${
+          expiresAt.toLocaleDateString('en-US', {
+            month: 'long', day: 'numeric', year: 'numeric'
+          })
+        }. Ask the owner to generate a new link.`
+      );
+      return;
+    }
+
+    // ── Extract data ──────────────────────────
+    const d          = reportDoc.data || {};
+    const currency   = d.currency   || 'USD';
+    const myName     = d.myName     || 'You';
+    const herName    = d.herName    || 'Partner';
+    const mySpend    = d.mySpend    || 0;
+    const herSpend   = d.herSpend   || 0;
+    const myIncome   = d.myIncome   || 0;
+    const herIncome  = d.herIncome  || 0;
+    const myCat      = d.myCatSpend  || {};
+    const herCat     = d.herCatSpend || {};
+    const combined   = mySpend + herSpend;
+    const myPct      = combined > 0
+      ? Math.round((mySpend / combined) * 100)
+      : 50;
+    const herPct     = 100 - myPct;
+
+    // ── Merge categories for table ────────────
+    const allCatIds = Array.from(
+      new Set([...Object.keys(myCat), ...Object.keys(herCat)])
+    ).filter(id => (myCat[id] || 0) + (herCat[id] || 0) > 0)
+     .sort((a, b) =>
+       ((myCat[b] || 0) + (herCat[b] || 0))
+       - ((myCat[a] || 0) + (herCat[a] || 0))
+     );
+
+    const catRowsHtml = allCatIds.map(id => {
+      const info   = getCatInfo(id);
+      const myAmt  = myCat[id]  || 0;
+      const herAmt = herCat[id] || 0;
+      return `
+        <div class="report-cat-row">
+          <div class="report-cat-name">
+            <div class="report-cat-dot"
+                 style="background:${info.color}"></div>
+            ${info.label}
+          </div>
+          <div class="report-cat-val you">
+            ${myAmt > 0 ? formatAmount(myAmt, currency) : '—'}
+          </div>
+          <div class="report-cat-val her">
+            ${herAmt > 0 ? formatAmount(herAmt, currency) : '—'}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // ── Calculate days until expiry ───────────
+    const msLeft    = expiresAt - now;
+    const daysLeft  = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+    const expiryStr = daysLeft === 1
+      ? 'Expires tomorrow'
+      : `Expires in ${daysLeft} days`;
+
+    // ── Render report ─────────────────────────
+    loadingEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    contentEl.innerHTML = `
+
+      <!-- Header card -->
+      <div class="report-header">
+        <div class="report-badge">
+          <svg viewBox="0 0 24 24" width="10" height="10"
+               stroke="currentColor" fill="none"
+               stroke-width="2.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0
+                     0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          Monthly Report
+        </div>
+        <h1 class="report-month">${formatMonth(d.month)}</h1>
+        <p class="report-generated">
+          Generated ${formatDate(reportDoc.createdAt)}
+        </p>
+        <p class="report-expiry">${expiryStr}</p>
+      </div>
+
+      <!-- People cards -->
+      <div class="report-people">
+        <div class="report-person-card you-card">
+          <div class="report-person-avatar">
+            ${getInitials(myName)}
+          </div>
+          <p class="report-person-name">${myName}</p>
+          <p class="report-person-spend">
+            ${formatAmount(mySpend, currency)}
+          </p>
+          ${myIncome > 0 ? `
+            <p class="report-person-income">
+              +${formatAmount(myIncome, currency)} income
+            </p>
+          ` : ''}
+        </div>
+        <div class="report-person-card her-card">
+          <div class="report-person-avatar">
+            ${getInitials(herName)}
+          </div>
+          <p class="report-person-name">${herName}</p>
+          <p class="report-person-spend">
+            ${formatAmount(herSpend, currency)}
+          </p>
+          ${herIncome > 0 ? `
+            <p class="report-person-income">
+              +${formatAmount(herIncome, currency)} income
+            </p>
+          ` : ''}
+        </div>
+      </div>
+
+      <!-- Combined total -->
+      <div class="report-combined-card">
+        <p class="report-combined-label">Combined Total</p>
+        <p class="report-combined-amount">
+          ${formatAmount(combined, currency)}
+        </p>
+        <div class="report-split-bar">
+          <div class="report-split-you"
+               style="width:${myPct}%"></div>
+          <div class="report-split-her"
+               style="width:${herPct}%"></div>
+        </div>
+        <div class="report-split-labels">
+          <span class="report-split-label">
+            ${myName} <span>${myPct}%</span>
+          </span>
+          <span class="report-split-label">
+            <span>${herPct}%</span> ${herName}
+          </span>
+        </div>
+      </div>
+
+      <!-- Category breakdown -->
+      ${allCatIds.length > 0 ? `
+        <p class="report-section-title">Category Breakdown</p>
+        <div class="report-cat-card">
+          <div class="report-cat-row report-cat-head">
+            <div>Category</div>
+            <div style="text-align:right">${myName}</div>
+            <div style="text-align:right">${herName}</div>
+          </div>
+          ${catRowsHtml}
+        </div>
+      ` : ''}
+
+      <!-- Footer -->
+      <div class="report-footer">
+        <p class="report-footer-text">
+          Shared via CoupleSpend &mdash;
+          Track & compare spending together
+        </p>
+        <p class="report-footer-app">CoupleSpend</p>
+      </div>
+    `;
+
+  })();
+  </script>
+
+</body>
+</html>

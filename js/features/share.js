@@ -5,6 +5,24 @@
 
 const ShareManager = (() => {
 
+  // ── Resolve the correct base URL ──────────
+  // Works on GitHub Pages, localhost, and
+  // any custom domain without hardcoding
+  function getBaseUrl() {
+    const origin   = window.location.origin;
+    const pathname = window.location.pathname;
+
+    // Find the repo/base folder by removing
+    // the filename (app.html) from the path
+    // e.g. /coupleSpend/app.html → /coupleSpend
+    const base = pathname.substring(
+      0,
+      pathname.lastIndexOf('/')
+    );
+
+    return origin + base;
+  }
+
   // ── Build share text ───────────────────────
   function buildShareText(type = 'monthly') {
     const profile  = store.state.profile;
@@ -121,10 +139,22 @@ const ShareManager = (() => {
       const uid   = store.state.user?.uid;
       const month = store.state.currentMonth;
 
-      const expiry = new Date();
-      expiry.setDate(
-        expiry.getDate() + (APP_CONFIG.reportExpireDays || 7)
-      );
+      if (!uid) {
+        Toast.show('error', 'Not signed in',
+          'Please sign in to generate a share link'
+        );
+        return null;
+      }
+
+      const expireDays = APP_CONFIG?.reportExpireDays || 7;
+      const expiry     = new Date();
+      expiry.setDate(expiry.getDate() + expireDays);
+
+      // Collect report data from store
+      const myTxns   = store.state.transactions  || [];
+      const herTxns  = store.state.partnerTxns   || [];
+      const profile  = store.state.profile       || {};
+      const partner  = store.state.partnerProfile || {};
 
       const reportRef = await db
         .collection(COLLECTIONS.REPORTS)
@@ -135,28 +165,41 @@ const ShareManager = (() => {
           expiresAt: firebase.firestore.Timestamp.fromDate(expiry),
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           data: {
-            mySpend:  store.getTotalSpend(store.state.transactions),
-            herSpend: store.getTotalSpend(store.state.partnerTxns),
-            month
+            month,
+            myName:   profile.name        || 'Me',
+            herName:  partner.name
+                   || profile.partnerName || 'Partner',
+            currency: profile.currency    || 'USD',
+            mySpend:  store.getTotalSpend(myTxns),
+            herSpend: store.getTotalSpend(herTxns),
+            myIncome: store.getTotalIncome(myTxns),
+            herIncome:store.getTotalIncome(herTxns),
+            myCatSpend:  store.getSpendByCategory(myTxns),
+            herCatSpend: store.getSpendByCategory(herTxns),
+            expireDays
           }
         });
 
-      const baseUrl = window.location.origin
-        + window.location.pathname.replace(/\/[^/]*$/, '');
-      const link = `${baseUrl}/report.html?id=${reportRef.id}`;
+      // Build URL pointing to report.html
+      // Uses dynamic base so it works on any
+      // domain (GitHub Pages, localhost, etc.)
+      const base = getBaseUrl();
+      const link = `${base}/report.html?id=${reportRef.id}`;
 
       await copyToClipboard(link);
       Toast.show(
         'success',
-        'Link copied',
-        `Expires in ${APP_CONFIG.reportExpireDays || 7} days`
+        'Link copied!',
+        `Share link copied. Expires in ${expireDays} days.`
       );
 
       return link;
 
     } catch (err) {
       console.error('Generate link error:', err);
-      Toast.show('error', 'Failed', 'Could not generate share link');
+      Toast.show('error', 'Failed',
+        'Could not generate share link. Check your connection.'
+      );
       return null;
     }
   }
@@ -213,7 +256,7 @@ const ShareManager = (() => {
     });
   }
 
-  // ── Expose ────────────────────────────────
+  // ── Public API ────────────────────────────
   return {
     shareNative,
     shareWithFile,
@@ -229,21 +272,9 @@ const ShareManager = (() => {
 
 // ── Window exports ─────────────────────────
 window.ShareManager      = ShareManager;
-window.shareNative       = function(t) {
-  ShareManager.shareNative(t);
-};
-window.shareWhatsApp     = function(t) {
-  ShareManager.shareWhatsApp(t);
-};
-window.shareEmail        = function() {
-  ShareManager.shareEmail();
-};
-window.copySummary       = function(t) {
-  ShareManager.copySummary(t);
-};
-window.generateShareLink = function() {
-  ShareManager.generateShareLink();
-};
-window.showShareOptions  = function() {
-  ShareManager.showShareOptions();
-};
+window.shareNative       = function(t) { ShareManager.shareNative(t); };
+window.shareWhatsApp     = function(t) { ShareManager.shareWhatsApp(t); };
+window.shareEmail        = function()  { ShareManager.shareEmail(); };
+window.copySummary       = function(t) { ShareManager.copySummary(t); };
+window.generateShareLink = function()  { ShareManager.generateShareLink(); };
+window.showShareOptions  = function()  { ShareManager.showShareOptions(); };

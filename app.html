@@ -441,9 +441,30 @@
 <!-- ── Scripts: Pages ────────────────────── -->
 <script src="js/pages/dashboard.js"></script>
 <script src="js/pages/settings.js"></script>
+<script src="js/pages/transactions-page.js"></script>
+<script src="js/pages/analytics-page.js"></script>
 
 <!-- ── App Init ──────────────────────────── -->
 <script>
+// ── Apply theme from localStorage immediately ──
+// This runs before Firestore loads so the user
+// never sees a flash of wrong theme
+(function applyStoredTheme() {
+  try {
+    const savedTheme  = localStorage.getItem('cs_theme')  || 'dark';
+    const savedAccent = localStorage.getItem('cs_accent') || 'indigo';
+    const savedYou    = localStorage.getItem('cs_you_color');
+    const savedHer    = localStorage.getItem('cs_her_color');
+
+    document.documentElement.setAttribute('data-theme',  savedTheme);
+    document.documentElement.setAttribute('data-accent', savedAccent);
+    if (savedYou) document.documentElement.setAttribute('data-you', savedYou);
+    if (savedHer) document.documentElement.setAttribute('data-her', savedHer);
+  } catch (e) {
+    // localStorage not available — silent fail, defaults stay
+  }
+})();
+
 // ── Auth Guard ──────────────────────────────
 auth.onAuthStateChanged(async (user) => {
   const guard   = document.getElementById('auth-guard');
@@ -455,20 +476,51 @@ auth.onAuthStateChanged(async (user) => {
   }
 
   try {
-    // Load user profile
+    // Load user profile and all store data
     await store.init(user);
 
-    // Apply saved theme
-    applyTheme(store.state.profile.theme || 'dark');
-    applyAccent(store.state.profile.accentColor || 'indigo');
+    // ── Safe theme application ──────────────
+    // profile may be null if Firestore doc
+    // doesn't exist yet (e.g. new Google login)
+    // Fall back to localStorage values safely
+    const profile     = store.state.profile;
+    const themeName   = profile?.theme
+                     || localStorage.getItem('cs_theme')
+                     || 'dark';
+    const accentName  = profile?.accentColor
+                     || localStorage.getItem('cs_accent')
+                     || 'indigo';
+    const youColor    = profile?.youColor
+                     || localStorage.getItem('cs_you_color')
+                     || null;
+    const herColor    = profile?.herColor
+                     || localStorage.getItem('cs_her_color')
+                     || null;
 
-    // Init router
+    // Apply via ThemeManager if available,
+    // otherwise fall back to direct attribute set
+    if (window.ThemeManager) {
+      ThemeManager.init(profile || {
+        theme:       themeName,
+        accentColor: accentName,
+        youColor,
+        herColor
+      });
+    } else {
+      // ThemeManager not ready — apply directly
+      document.documentElement.setAttribute('data-theme',  themeName);
+      document.documentElement.setAttribute('data-accent', accentName);
+      if (youColor) document.documentElement.setAttribute('data-you', youColor);
+      if (herColor) document.documentElement.setAttribute('data-her', herColor);
+    }
+
+    // Init router (page navigation)
     router.init();
 
-    // Init transaction modal
+    // Init transaction modal defaults
     initTransactionModal();
 
-    // Show app
+    // Show app, hide loading guard
     guard.classList.add('hidden');
     wrapper.classList.remove('hidden');
 
@@ -476,15 +528,30 @@ auth.onAuthStateChanged(async (user) => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('./sw.js')
-        .then(reg => console.log('SW registered'))
-        .catch(err => console.warn('SW:', err));
+        .then(() => console.log('SW registered'))
+        .catch(err => console.warn('SW error:', err));
     }
 
   } catch (err) {
     console.error('App init error:', err);
     guard.innerHTML = `
-      <div class="auth-guard-inner">
-        <p style="color:var(--danger)">Failed to load. Please refresh.</p>
+      <div class="auth-guard-inner" style="flex-direction:column;gap:16px;padding:24px;text-align:center">
+        <svg viewBox="0 0 24 24" width="48" height="48" stroke="var(--danger)" fill="none" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p style="color:var(--danger);font-weight:600">Failed to load app</p>
+        <p style="color:var(--text-muted);font-size:14px">
+          Check your connection and try again
+        </p>
+        <button
+          onclick="window.location.reload()"
+          style="padding:10px 24px;background:var(--accent);color:#fff;
+                 border:none;border-radius:8px;cursor:pointer;font-size:14px"
+        >
+          Retry
+        </button>
       </div>
     `;
   }
