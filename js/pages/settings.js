@@ -573,9 +573,11 @@ const settingsPage = (() => {
   }
 
   function getInviteLink(token) {
-    // Use the app's main URL (index.html) with invite param
-    const base = window.location.origin + '/index.html';
-    return `${base}?invite=${token}`;
+  // Build the correct path even if app is in a subfolder
+    const path = window.location.pathname;
+  // Remove everything after the last slash (like "app.html" or "index.html")
+    const base = path.substring(0, path.lastIndexOf('/') + 1);
+    return `${window.location.origin}${base}index.html?invite=${token}`;
   }
 
   async function invitePartner() {
