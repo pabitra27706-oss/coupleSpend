@@ -91,7 +91,36 @@ const settingsPage = (() => {
             </div>
           </div>
         ` : `
-          <!-- Link Partner -->
+          <!-- Link Partner (both options) -->
+
+          <!-- NEW: Invite by link -->
+          <div class="card">
+            <div class="settings-link-partner">
+              <div class="settings-link-icon" style="background: rgba(var(--accent-rgb),0.1); color: var(--accent)">
+                ${Icons.link}
+              </div>
+              <div class="settings-link-info">
+                <div class="settings-link-title">
+                  Invite Partner
+                </div>
+                <div class="settings-link-desc">
+                  Generate a link your partner can open
+                  to automatically link accounts
+                </div>
+              </div>
+            </div>
+
+            <button
+              class="btn btn-primary btn-full"
+              onclick="settingsPage.invitePartner()"
+              id="invite-partner-btn"
+            >
+              ${Icons.share}
+              Copy Invite Link
+            </button>
+          </div>
+
+          <!-- EXISTING: Manual ID entry (unchanged) -->
           <div class="card">
             <div class="settings-link-partner">
               <div class="settings-link-icon">
@@ -535,23 +564,70 @@ const settingsPage = (() => {
     Toast.success('Copied!', 'Your User ID has been copied');
   }
 
-  // ── Link partner ───────────────────────────
-  // FIX: The core problem was that Firestore
-  // security rules block writing to another
-  // user's doc (auth.uid != partnerId).
-  // Solution: We write ONLY to our own doc.
-  // The partner's doc update is done via a
-  // special "linkRequests" approach — we
-  // store our uid in our own doc as
-  // pendingLinkTo, then when partner opens
-  // the app, store.init() detects and
-  // completes the link on their side.
-  // But for simplicity and since both users
-  // are authenticated, we use a Firestore
-  // intermediate "couple" document that
-  // both users can write to, then each
-  // user reads from it and updates their
-  // own doc. This respects security rules.
+  // ── NEW: Generate invite link ──────────────
+  function generateInviteToken() {
+    // Create a random token (24 hex chars)
+    const array = new Uint8Array(12);
+    crypto.getRandomValues(array);
+    return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function getInviteLink(token) {
+    // Use the app's main URL (index.html) with invite param
+    const base = window.location.origin + '/index.html';
+    return `${base}?invite=${token}`;
+  }
+
+  async function invitePartner() {
+    const btn = document.getElementById('invite-partner-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `${Icons.spinner || ''} Generating...`;
+    }
+
+    try {
+      const myUid = store.state.user?.uid;
+      if (!myUid) {
+        Toast.error('Error', 'You must be logged in');
+        return;
+      }
+
+      // 1. Create a one-time token and store it in Firestore
+      const token = generateInviteToken();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      await db.collection(COLLECTIONS.INVITES).doc(token).set({
+        createdBy: myUid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+        used: false
+      });
+
+      // 2. Build the shareable link
+      const link = getInviteLink(token);
+
+      // 3. Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(link);
+        Toast.success('Link copied!', 'Send this link to your partner. '
+          + 'They just need to open it and sign in.');
+      } catch (clipErr) {
+        // Fallback: show the link for manual copy
+        Toast.info('Invite link', `Share this link: ${link}`);
+      }
+
+    } catch (err) {
+      console.error('Invite partner error:', err);
+      Toast.error('Failed', 'Could not create invite link');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `${Icons.share} Copy Invite Link`;
+      }
+    }
+  }
+
+  // ── Link partner (manual) ──────────────────
   async function linkPartner() {
     const input     = document.getElementById('partner-id-input');
     const btn       = document.getElementById('link-partner-btn');
@@ -569,25 +645,20 @@ const settingsPage = (() => {
       return;
     }
 
-    // Disable button during operation
     if (btn) {
       btn.disabled    = true;
       btn.textContent = 'Linking...';
     }
 
     try {
-      // ── Step 1: Verify partner doc exists ──
+      // Verify partner doc exists
       const partnerSnap = await db
         .collection(COLLECTIONS.USERS)
         .doc(partnerId)
         .get();
 
       if (!partnerSnap.exists) {
-        Toast.error(
-          'Not found',
-          'No account found with that User ID. '
-          + 'Make sure your partner has registered first.'
-        );
+        Toast.error('Not found', 'No account found with that ID');
         if (btn) {
           btn.disabled    = false;
           btn.textContent = 'Link';
@@ -597,15 +668,8 @@ const settingsPage = (() => {
 
       const partnerData = partnerSnap.data();
 
-      // ── Step 2: Check partner not already
-      //    linked to someone else ────────────
-      if (partnerData.partnerId
-          && partnerData.partnerId !== myUid) {
-        Toast.error(
-          'Already linked',
-          `${partnerData.name || 'This account'} is already `
-          + 'linked to another account'
-        );
+      if (partnerData.partnerId && partnerData.partnerId !== myUid) {
+        Toast.error('Already linked', `${partnerData.name || 'This account'} is already linked`);
         if (btn) {
           btn.disabled    = false;
           btn.textContent = 'Link';
@@ -613,98 +677,50 @@ const settingsPage = (() => {
         return;
       }
 
-      // ── Step 3: Update MY own doc ──────────
-      // Security rules ALLOW this because
-      // auth.uid == myUid
-      await db
-        .collection(COLLECTIONS.USERS)
-        .doc(myUid)
-        .update({ partnerId });
+      // Update own doc
+      await db.collection(COLLECTIONS.USERS).doc(myUid).update({ partnerId });
 
-      // ── Step 4: Update PARTNER doc ─────────
-      // Security rules BLOCK direct write
-      // to another user's doc.
-      // FIX: Use a shared "couple" link doc
-      // that both users can write to.
-      // Store the link request so partner's
-      // app auto-completes it on next load.
+      // Attempt to update partner doc (may be blocked by rules, couple doc fallback)
       const coupleId = [myUid, partnerId].sort().join('_');
+      await db.collection(COLLECTIONS.COUPLE).doc(coupleId).set({
+        userA: myUid,
+        userB: partnerId,
+        linkedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        linkedBy: myUid
+      }, { merge: true });
 
-      await db
-        .collection(COLLECTIONS.COUPLE)
-        .doc(coupleId)
-        .set({
-          userA:     myUid,
-          userB:     partnerId,
-          linkedAt:  firebase.firestore.FieldValue.serverTimestamp(),
-          linkedBy:  myUid
-        }, { merge: true });
-
-      // Also try to write partner doc directly
-      // This succeeds if security rules permit
-      // or if partner is also logged in.
-      // We wrap in try/catch so it doesn't
-      // block the flow if rules deny it.
       try {
-        await db
-          .collection(COLLECTIONS.USERS)
-          .doc(partnerId)
-          .update({ partnerId: myUid });
+        await db.collection(COLLECTIONS.USERS).doc(partnerId).update({ partnerId: myUid });
       } catch (ruleErr) {
-        // Expected if security rules block it
-        // Partner's app will self-heal via
-        // checkPendingLink() on next load
-        console.info(
-          'Direct partner doc update blocked by rules '
-          + '(expected) — couple doc created as fallback',
-          ruleErr.code
-        );
+        console.info('Direct partner update blocked by rules (expected)');
       }
 
-      // ── Step 5: Send notification ──────────
-      // toUserId is the partner — allowed
-      // because notifications rules allow
-      // create if auth != null
+      // Notification
       try {
         await db.collection(COLLECTIONS.NOTIFICATIONS).add({
-          toUserId:   partnerId,
+          toUserId: partnerId,
           fromUserId: myUid,
-          type:       'partner_linked',
-          title:      'Partner Linked! 🎉',
-          message:    `${store.state.profile?.name || 'Someone'} `
-                    + 'linked their account to yours. '
-                    + 'Open settings to confirm.',
-          isRead:     false,
-          data:       { fromUid: myUid },
-          createdAt:  firebase.firestore.FieldValue.serverTimestamp()
+          type: 'partner_linked',
+          title: 'Partner Linked! 🎉',
+          message: `${store.state.profile?.name || 'Someone'} linked their account to yours.`,
+          isRead: false,
+          data: { fromUid: myUid },
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       } catch (notifErr) {
-        // Non-fatal
         console.warn('Notification send failed:', notifErr);
       }
 
-      // ── Step 6: Update local store ─────────
       store.updateProfile({ partnerId });
       await store.loadPartnerProfile(partnerId);
-      await store.loadPartnerTransactions(
-        partnerId,
-        store.state.currentMonth
-      );
+      await store.loadPartnerTransactions(partnerId, store.state.currentMonth);
 
-      Toast.success(
-        'Linked! 🎉',
-        `Connected with ${partnerData.name || 'your partner'}. `
-        + 'They will be notified.'
-      );
-
+      Toast.success('Linked! 🎉', `Connected with ${partnerData.name || 'your partner'}`);
       render();
 
     } catch (err) {
       console.error('Link partner error:', err);
-      Toast.error(
-        'Failed',
-        'Could not link partner. Check your connection and try again.'
-      );
+      Toast.error('Failed', 'Could not link partner');
       if (btn) {
         btn.disabled    = false;
         btn.textContent = 'Link';
@@ -716,8 +732,7 @@ const settingsPage = (() => {
   async function unlinkPartner() {
     const confirmed = await Modal.confirm({
       title:   'Unlink Partner',
-      message: 'Are you sure? You will no longer see '
-             + 'each other\'s transactions.',
+      message: 'Are you sure? You will no longer see each other\'s transactions.',
       okText:  'Unlink',
       okClass: 'btn-danger'
     });
@@ -728,46 +743,24 @@ const settingsPage = (() => {
       const myUid     = store.state.user?.uid;
       const partnerId = store.state.profile?.partnerId;
 
-      // Update my own doc — always allowed
-      await db
-        .collection(COLLECTIONS.USERS)
-        .doc(myUid)
-        .update({ partnerId: null });
+      await db.collection(COLLECTIONS.USERS).doc(myUid).update({ partnerId: null });
 
-      // Try to update partner's doc
-      // May be blocked by rules — that's ok,
-      // they will see unlinked on their end
-      // when they next open the app via
-      // checkPendingLink()
       if (partnerId) {
         try {
-          await db
-            .collection(COLLECTIONS.USERS)
-            .doc(partnerId)
-            .update({ partnerId: null });
+          await db.collection(COLLECTIONS.USERS).doc(partnerId).update({ partnerId: null });
         } catch (ruleErr) {
-          console.info(
-            'Could not update partner doc on unlink '
-            + '(rules) — they will self-heal on next load'
-          );
+          console.info('Could not update partner doc (rules)');
         }
 
-        // Clean up couple doc
         const coupleId = [myUid, partnerId].sort().join('_');
         try {
-          await db
-            .collection(COLLECTIONS.COUPLE)
-            .doc(coupleId)
-            .delete();
-        } catch (e) {
-          // Non-fatal
-        }
+          await db.collection(COLLECTIONS.COUPLE).doc(coupleId).delete();
+        } catch (e) { /* non-fatal */ }
       }
 
-      // Clear store
       store.updateProfile({ partnerId: null });
       store.setState('partnerProfile', null);
-      store.setState('partnerTxns',    []);
+      store.setState('partnerTxns', []);
 
       Toast.success('Unlinked', 'Partner account disconnected');
       render();
@@ -831,7 +824,6 @@ const settingsPage = (() => {
     document.querySelectorAll('.font-size-btn').forEach(btn => {
       btn.classList.remove('active');
     });
-    // Use event target if available
     if (event?.target) {
       event.target.closest('.font-size-btn')?.classList.add('active');
     }
@@ -845,8 +837,7 @@ const settingsPage = (() => {
         ${currList.map(c => `
           <button
             class="currency-item ${
-              store.state.profile?.currency === c.code
-                ? 'active' : ''
+              store.state.profile?.currency === c.code ? 'active' : ''
             }"
             onclick="settingsPage.setCurrency('${c.code}')"
           >
@@ -854,9 +845,7 @@ const settingsPage = (() => {
             <span class="currency-name">${c.name}</span>
             <span class="currency-code">${c.code}</span>
             ${store.state.profile?.currency === c.code
-              ? `<span style="color:var(--accent)">
-                   ${Icons.check}
-                 </span>`
+              ? `<span style="color:var(--accent)">${Icons.check}</span>`
               : ''
             }
           </button>
@@ -955,9 +944,7 @@ const settingsPage = (() => {
   async function clearData() {
     const confirmed = await Modal.confirm({
       title:   'Clear All Data',
-      message: 'This will permanently delete ALL your '
-             + 'transactions, budgets and settings. '
-             + 'This action cannot be undone.',
+      message: 'This will permanently delete ALL your transactions, budgets and settings. This action cannot be undone.',
       okText:  'Clear Everything',
       okClass: 'btn-danger'
     });
@@ -966,8 +953,7 @@ const settingsPage = (() => {
 
     const confirmed2 = await Modal.confirm({
       title:   'Are you absolutely sure?',
-      message: 'All data will be permanently lost. '
-             + 'This cannot be reversed.',
+      message: 'All data will be permanently lost. This cannot be reversed.',
       okText:  'Yes, Delete All',
       okClass: 'btn-danger'
     });
@@ -981,26 +967,20 @@ const settingsPage = (() => {
       Toast.info('Deleting', 'Clearing your data...');
 
       const batch = db.batch();
-
-      const txSnap = await db
-        .collection(COLLECTIONS.TRANSACTIONS)
-        .where('userId', '==', uid)
-        .get();
+      const txSnap = await db.collection(COLLECTIONS.TRANSACTIONS)
+        .where('userId', '==', uid).get();
       txSnap.docs.forEach(d => batch.delete(d.ref));
 
-      const bgSnap = await db
-        .collection(COLLECTIONS.BUDGETS)
-        .where('userId', '==', uid)
-        .get();
+      const bgSnap = await db.collection(COLLECTIONS.BUDGETS)
+        .where('userId', '==', uid).get();
       bgSnap.docs.forEach(d => batch.delete(d.ref));
 
       await batch.commit();
 
       store.setState('transactions', []);
-      store.setState('budgets',      []);
+      store.setState('budgets', []);
 
       Toast.success('Cleared', 'All data has been deleted');
-
     } catch (err) {
       console.error('Clear data error:', err);
       Toast.error('Failed', 'Could not clear data');
@@ -1035,6 +1015,7 @@ const settingsPage = (() => {
     saveName,
     savePartnerName,
     copyUserId,
+    invitePartner,          // ★ NEW
     linkPartner,
     unlinkPartner,
     toggleNotification,

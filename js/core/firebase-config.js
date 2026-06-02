@@ -40,7 +40,8 @@ const COLLECTIONS = {
   RECURRING: 'recurring',
   NOTIFICATIONS: 'notifications',
   REPORTS: 'reports',
-  COUPLE: 'couple'
+  COUPLE: 'couple',
+  INVITES:'invites'
 };
 
 // ── App Constants ────────────────────────

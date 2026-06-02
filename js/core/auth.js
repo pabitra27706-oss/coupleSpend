@@ -5,33 +5,43 @@
 
 // ── State ────────────────────────────────
 let currentTab = 'login';
+let pendingInviteToken = null;   // ★ NEW: holds invite token from URL
 
 // ── On Page Load ─────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
+
+  // ★ NEW: Check for invitation link
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteParam = urlParams.get('invite');
+  if (inviteParam) {
+    pendingInviteToken = inviteParam.trim();
+    // Clean the URL so the param isn't re-used on refresh
+    if (window.history && window.history.replaceState) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }
 
   // Apply saved theme immediately so no flash
   applySavedTheme();
 
   // Check if user already logged in
-  // Use a one-time check flag to avoid
-  // double redirect on slow connections
   let redirected = false;
   auth.onAuthStateChanged(async (user) => {
     if (user && !redirected) {
       redirected = true;
 
-      // ── Ensure Firestore doc exists ──────
-      // This is the critical fix:
-      // Even if register/Google login
-      // failed to write the doc, we
-      // create it here as a safety net
-      // every time the user logs in
       try {
         await ensureUserDoc(user);
+
+        // ★ NEW: If there's a pending invite, process it now
+        if (pendingInviteToken) {
+          await processInviteToken(user, pendingInviteToken);
+          pendingInviteToken = null;
+        }
+
       } catch (err) {
-        console.warn('ensureUserDoc failed:', err);
-        // Do not block redirect — app can
-        // still load with partial data
+        console.warn('ensureUserDoc/invite processing failed:', err);
       }
 
       window.location.href = 'app.html';
@@ -48,10 +58,6 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Ensure User Doc Exists ────────────────
-// Called on every login as a safety net.
-// Uses set() with merge:true so it never
-// overwrites existing data — only creates
-// the doc if it is missing.
 async function ensureUserDoc(user) {
   if (!user?.uid) return;
 
@@ -59,11 +65,6 @@ async function ensureUserDoc(user) {
   const snap = await ref.get();
 
   if (!snap.exists) {
-    // Doc missing — create it now
-    // This handles:
-    //   1. Register Firestore write failed
-    //   2. Google login skipped new user
-    //   3. Any other silent failure
     await ref.set({
       uid:         user.uid,
       name:        user.displayName || extractNameFromEmail(user.email),
@@ -86,15 +87,91 @@ async function ensureUserDoc(user) {
       },
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    // merge:true means if doc somehow
-    // exists with partial data, we fill
-    // in missing fields without overwriting
+  }
+}
+
+// ── NEW: Process invitation token ─────────
+async function processInviteToken(user, token) {
+  try {
+    // 1. Fetch the invite doc
+    const inviteSnap = await db.collection(COLLECTIONS.INVITES).doc(token).get();
+    if (!inviteSnap.exists) {
+      console.warn('Invite token not found');
+      return;
+    }
+
+    const inviteData = inviteSnap.data();
+    if (inviteData.used) {
+      console.warn('Invite token already used');
+      return;
+    }
+    if (inviteData.expiresAt && inviteData.expiresAt.toDate() < new Date()) {
+      console.warn('Invite token expired');
+      return;
+    }
+
+    const creatorUid = inviteData.createdBy;
+    if (!creatorUid || creatorUid === user.uid) {
+      // Cannot link to yourself
+      return;
+    }
+
+    // 2. Verify that the creator still exists and is not already linked
+    const creatorSnap = await db.collection(COLLECTIONS.USERS).doc(creatorUid).get();
+    if (!creatorSnap.exists) {
+      return;
+    }
+    const creatorData = creatorSnap.data();
+    if (creatorData.partnerId && creatorData.partnerId !== user.uid) {
+      // Creator already linked to someone else
+      return;
+    }
+
+    // 3. Update both user docs
+    await db.collection(COLLECTIONS.USERS).doc(creatorUid).update({ partnerId: user.uid });
+    try {
+      await db.collection(COLLECTIONS.USERS).doc(user.uid).update({ partnerId: creatorUid });
+    } catch (partnerDocErr) {
+      // Own doc update always allowed; ignore rule block on partner doc
+      console.info('Could not update partner doc (rules)');
+    }
+
+    // 4. Create couple doc
+    const coupleId = [creatorUid, user.uid].sort().join('_');
+    await db.collection(COLLECTIONS.COUPLE).doc(coupleId).set({
+      userA: creatorUid,
+      userB: user.uid,
+      linkedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      linkedBy: creatorUid
+    }, { merge: true });
+
+    // 5. Mark invite as used
+    await db.collection(COLLECTIONS.INVITES).doc(token).update({ used: true });
+
+    // 6. Send notification to creator
+    try {
+      await db.collection(COLLECTIONS.NOTIFICATIONS).add({
+        toUserId: creatorUid,
+        fromUserId: user.uid,
+        type: 'partner_linked',
+        title: 'Partner Accepted! 🎉',
+        message: `${user.displayName || user.email} accepted your invitation.`,
+        isRead: false,
+        data: {},
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (notifErr) {
+      console.warn('Notification failed:', notifErr);
+    }
+
+    console.log('Invite processed successfully');
+
+  } catch (err) {
+    console.error('processInviteToken error:', err);
   }
 }
 
 // ── Extract name from email ───────────────
-// Fallback when displayName is null
-// e.g. "john.doe@gmail.com" → "John Doe"
 function extractNameFromEmail(email) {
   if (!email) return 'User';
   const local = email.split('@')[0];
@@ -152,15 +229,15 @@ async function handleLogin(event) {
 
   try {
     const cred = await auth.signInWithEmailAndPassword(email, password);
-
-    // Ensure doc exists on every login
-    // (handles accounts created before
-    // Firestore write was added)
     await ensureUserDoc(cred.user);
 
-    showToast('success', 'Welcome back!',
-      `Signed in as ${cred.user.email}`
-    );
+    // ★ NEW: Process invite token if present
+    if (pendingInviteToken) {
+      await processInviteToken(cred.user, pendingInviteToken);
+      pendingInviteToken = null;
+    }
+
+    showToast('success', 'Welcome back!', `Signed in as ${cred.user.email}`);
 
     setTimeout(() => {
       window.location.href = 'app.html';
@@ -187,7 +264,6 @@ async function handleRegister(event) {
   const spinner  = document.getElementById('register-spinner');
   const errBox   = document.getElementById('register-error');
 
-  // Validate
   if (!name || !email || !password || !confirm) {
     showFormError(errBox, 'Please fill in all required fields');
     return;
@@ -207,21 +283,15 @@ async function handleRegister(event) {
   let cred = null;
 
   try {
-    // Step 1: Create auth account
     cred = await auth.createUserWithEmailAndPassword(email, password);
     const uid = cred.user.uid;
 
-    // Step 2: Update display name
     try {
       await cred.user.updateProfile({ displayName: name });
     } catch (profileErr) {
-      // Non-fatal — continue
       console.warn('updateProfile failed:', profileErr);
     }
 
-    // Step 3: Write Firestore doc
-    // Retry up to 3 times in case of
-    // transient network issues
     const userDocData = {
       uid,
       name,
@@ -246,20 +316,13 @@ async function handleRegister(event) {
     };
 
     let writeSuccess = false;
-    let lastWriteErr = null;
-
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        await db
-          .collection(COLLECTIONS.USERS)
-          .doc(uid)
-          .set(userDocData);
+        await db.collection(COLLECTIONS.USERS).doc(uid).set(userDocData);
         writeSuccess = true;
         break;
       } catch (writeErr) {
-        lastWriteErr = writeErr;
-        console.warn(`Firestore write attempt ${attempt} failed:`, writeErr);
-        // Wait before retry (300ms, 600ms)
+        console.warn(`Write attempt ${attempt} failed:`, writeErr);
         if (attempt < 3) {
           await new Promise(r => setTimeout(r, attempt * 300));
         }
@@ -267,20 +330,15 @@ async function handleRegister(event) {
     }
 
     if (!writeSuccess) {
-      // All 3 attempts failed
-      // Log the error but DO NOT block
-      // the user — ensureUserDoc() will
-      // create the doc on next login
-      console.error('All Firestore write attempts failed:', lastWriteErr);
-      showToast(
-        'warning',
-        'Account created',
-        'Profile will sync on next login'
-      );
+      showToast('warning', 'Account created', 'Profile will sync on next login');
     } else {
-      showToast('success', 'Account created!',
-        'Welcome to CoupleSpend'
-      );
+      showToast('success', 'Account created!', 'Welcome to CoupleSpend');
+    }
+
+    // ★ NEW: Process invite token after registration
+    if (pendingInviteToken) {
+      await processInviteToken(cred.user, pendingInviteToken);
+      pendingInviteToken = null;
     }
 
     setTimeout(() => {
@@ -297,39 +355,27 @@ async function handleRegister(event) {
 // ── Google Login ──────────────────────────
 async function handleGoogleLogin() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  // Request profile + email scopes
   provider.addScope('profile');
   provider.addScope('email');
 
   const btn = document.getElementById('google-btn');
 
   btn.disabled = true;
-  btn.innerHTML = `
-    <span class="spinner spinner-sm"></span>
-    Connecting...
-  `;
+  btn.innerHTML = `<span class="spinner spinner-sm"></span> Connecting...`;
 
   try {
     const result = await auth.signInWithPopup(provider);
     const user   = result.user;
 
-    // ── FIX: Do NOT rely on isNewUser ────────
-    // additionalUserInfo.isNewUser is
-    // unreliable across browsers and
-    // Firebase SDK versions.
-    // Instead always call ensureUserDoc()
-    // which uses merge:true and only
-    // creates the doc if it's missing.
     await ensureUserDoc(user);
 
-    // If user provided a currency preference
-    // via Google we can't know it, so USD
-    // is set as default by ensureUserDoc.
-    // That's fine — user can change in settings.
+    // ★ NEW: Process invite token after Google login
+    if (pendingInviteToken) {
+      await processInviteToken(user, pendingInviteToken);
+      pendingInviteToken = null;
+    }
 
-    showToast('success', 'Welcome!',
-      `Signed in as ${user.displayName || user.email}`
-    );
+    showToast('success', 'Welcome!', `Signed in as ${user.displayName || user.email}`);
 
     setTimeout(() => {
       window.location.href = 'app.html';
@@ -337,8 +383,6 @@ async function handleGoogleLogin() {
 
   } catch (err) {
     console.error('Google login error:', err);
-
-    // Restore button
     btn.disabled = false;
     btn.innerHTML = `
       <svg class="google-icon" viewBox="0 0 24 24" fill="none">
@@ -359,9 +403,7 @@ async function handleGoogleLogin() {
     `;
 
     if (err.code !== 'auth/popup-closed-by-user') {
-      showToast('error', 'Google sign-in failed',
-        getAuthErrorMessage(err.code)
-      );
+      showToast('error', 'Google sign-in failed', getAuthErrorMessage(err.code));
     }
   }
 }
@@ -512,9 +554,6 @@ function applySavedTheme() {
     if (you) document.documentElement.setAttribute('data-you', you);
     if (her) document.documentElement.setAttribute('data-her', her);
 
-    // Apply CSS vars from THEMES object
-    // THEMES may not be loaded yet on
-    // index.html — guard with window check
     if (window.THEMES && window.THEMES[saved]) {
       const theme = window.THEMES[saved];
       Object.entries(theme).forEach(([key, val]) => {
@@ -524,7 +563,6 @@ function applySavedTheme() {
       });
     }
   } catch (e) {
-    // localStorage blocked — silent fail
     console.warn('Could not read saved theme:', e);
   }
 }
@@ -559,10 +597,7 @@ function showToast(type, title, message, duration = 3500) {
     </div>
     <div class="toast-content">
       <div class="toast-title">${title}</div>
-      ${message
-        ? `<div class="toast-message">${message}</div>`
-        : ''
-      }
+      ${message ? `<div class="toast-message">${message}</div>` : ''}
     </div>
   `;
 
