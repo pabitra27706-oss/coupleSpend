@@ -130,8 +130,8 @@
   height: 64px;
 }
 .avatar svg {
-  width:  55%;
-  height: 55%;
+  width:  50%;               /* was 55% */
+  height: 50%;               /* was 55% */
   stroke: currentColor;
   fill:   none;
   stroke-width: 1.5;
@@ -226,8 +226,8 @@
   align-items: center;
 }
 .nav-icon svg {
-  width:        22px;
-  height:       22px;
+  width:        20px;          /* was 22px */
+  height:       20px;          /* was 22px */
   stroke:       currentColor;
   fill:         none;
   stroke-width: 1.5;
@@ -265,8 +265,8 @@
   transform: scale(0.93);
 }
 .nav-add-icon svg {
-  width:        24px;
-  height:       24px;
+  width:        22px;          /* was 24px */
+  height:       22px;          /* was 24px */
   stroke:       currentColor;
   fill:         none;
   stroke-width: 2.5;
@@ -371,8 +371,8 @@
   transition:    var(--transition-fast);
 }
 .type-btn svg {
-  width:        16px;
-  height:       16px;
+  width:        14px;          /* was 16px */
+  height:       14px;          /* was 16px */
   stroke:       currentColor;
   fill:         none;
   stroke-width: 2;
@@ -457,8 +457,8 @@
   background:      rgba(128,128,128,0.1);
 }
 .category-icon svg {
-  width:        18px;
-  height:       18px;
+  width:        16px;          /* was 18px */
+  height:       16px;          /* was 18px */
   stroke:       currentColor;
   fill:         none;
   stroke-width: 1.5;
@@ -578,8 +578,8 @@
   margin-bottom:   var(--space-3);
 }
 .summary-card-icon svg {
-  width:        20px;
-  height:       20px;
+  width:        18px;          /* was 20px */
+  height:       18px;          /* was 20px */
   stroke:       currentColor;
   fill:         none;
   stroke-width: 1.5;
@@ -628,8 +628,8 @@
   flex-shrink:     0;
 }
 .tx-icon svg {
-  width:        18px;
-  height:       18px;
+  width:        16px;          /* was 18px */
+  height:       16px;          /* was 18px */
   stroke:       currentColor;
   fill:         none;
   stroke-width: 1.5;
@@ -668,8 +668,8 @@
   gap:            var(--space-4);
 }
 .empty-state-icon {
-  width:           72px;
-  height:          72px;
+  width:           64px;          /* was 72px */
+  height:          64px;          /* was 72px */
   background:      var(--bg-input);
   border-radius:   var(--radius-2xl);
   display:         flex;
@@ -678,8 +678,8 @@
   color:           var(--text-muted);
 }
 .empty-state-icon svg {
-  width:        36px;
-  height:       36px;
+  width:        32px;          /* was 36px */
+  height:       32px;          /* was 36px */
   stroke:       currentColor;
   fill:         none;
   stroke-width: 1.5;
@@ -728,8 +728,8 @@
 }
 .month-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
 .month-nav-btn svg {
-  width:        16px;
-  height:       16px;
+  width:        14px;          /* was 16px */
+  height:       14px;          /* was 16px */
   stroke:       currentColor;
   fill:         none;
   stroke-width: 2;
