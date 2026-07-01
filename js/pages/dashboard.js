@@ -7,16 +7,98 @@ const dashboardPage = (() => {
 
   // ── State ─────────────────────────────────
   let chartInstance = null;
-  let initialized   = false;
 
   // ── Initialize ────────────────────────────
   function init() {
     render();
 
-    // Subscribe to transaction changes
+    // Re-render when transactions change
     store.subscribe('transactions', () => {
       if (router.getCurrent() === 'dashboard') render();
     });
+
+    // Re-render when month changes (month selector)
+    store.subscribe('currentMonth', () => {
+      if (router.getCurrent() === 'dashboard') render();
+    });
+  }
+
+  // ── Build month selector HTML ──────────────
+  function renderMonthSelector() {
+    const months = [];
+    const now    = new Date();
+
+    // Build last 12 months list
+    for (let i = 0; i < 12; i++) {
+      const d        = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value    = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label    = d.toLocaleDateString('en-US', {
+        month: 'long',
+        year:  'numeric'
+      });
+      months.push({ value, label });
+    }
+
+    const current = store.state.currentMonth;
+
+    // If currentMonth is older than 12 months, add it too
+    // so it shows in the dropdown
+    const existsInList = months.some(m => m.value === current);
+    if (!existsInList && current) {
+      const [y, mo] = current.split('-');
+      const d       = new Date(parseInt(y), parseInt(mo) - 1, 1);
+      const label   = d.toLocaleDateString('en-US', {
+        month: 'long',
+        year:  'numeric'
+      });
+      months.push({ value: current, label });
+    }
+
+    return `
+      <div class="month-selector-card">
+        <div class="month-selector-row">
+          <div class="month-selector-left">
+            <svg class="month-cal-icon" viewBox="0 0 24 24"
+              width="18" height="18"
+              stroke="currentColor" fill="none"
+              stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8"  y1="2" x2="8"  y2="6"/>
+              <line x1="3"  y1="10" x2="21" y2="10"/>
+            </svg>
+            <span class="month-selector-label">Viewing</span>
+          </div>
+          <select
+            id="month-select"
+            class="month-select-input"
+            onchange="dashboardPage.handleMonthChange(this.value)"
+          >
+            ${months.map(m => `
+              <option value="${m.value}"
+                ${m.value === current ? 'selected' : ''}>
+                ${m.label}
+              </option>
+            `).join('')}
+          </select>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Handle month change ────────────────────
+  async function handleMonthChange(month) {
+    const select = document.getElementById('month-select');
+    if (select) select.disabled = true;
+
+    try {
+      await store.changeMonth(month);
+    } catch (err) {
+      console.error('Month change error:', err);
+    }
+
+    if (select) select.disabled = false;
   }
 
   // ── Render ────────────────────────────────
@@ -38,13 +120,16 @@ const dashboardPage = (() => {
     const recentTxns   = txns.slice(0, 5);
 
     // Who spent more
-    const diff         = mySpend - herSpend;
-    const hasPartner   = !!store.state.partnerProfile;
-    const partnerName  = store.state.partnerProfile?.name
+    const diff        = mySpend - herSpend;
+    const hasPartner  = !!store.state.partnerProfile;
+    const partnerName = store.state.partnerProfile?.name
       || profile?.partnerName
       || 'Partner';
 
     content.innerHTML = `
+
+      <!-- Month Selector -->
+      ${renderMonthSelector()}
 
       <!-- Month Header -->
       <div class="dashboard-month">
@@ -71,7 +156,9 @@ const dashboardPage = (() => {
           Income: <strong>${symbol}${myIncome.toFixed(2)}</strong>
           &nbsp;·&nbsp;
           Net: <strong style="color:${
-            myIncome - mySpend >= 0 ? 'var(--success)' : 'var(--danger)'
+            myIncome - mySpend >= 0
+              ? 'var(--success)'
+              : 'var(--danger)'
           }">
             ${myIncome - mySpend >= 0 ? '+' : ''}${symbol}${Math.abs(myIncome - mySpend).toFixed(2)}
           </strong>
@@ -161,7 +248,6 @@ const dashboardPage = (() => {
           <div class="chart-wrap">
             <canvas id="dashboard-chart" height="220"></canvas>
           </div>
-          <!-- Category Legend -->
           <div class="cat-legend" id="cat-legend"></div>
         </div>` : ''
       }
@@ -269,7 +355,6 @@ const dashboardPage = (() => {
     const canvas = document.getElementById('dashboard-chart');
     if (!canvas) return;
 
-    // Destroy old chart
     if (chartInstance) {
       chartInstance.destroy();
       chartInstance = null;
@@ -338,7 +423,7 @@ const dashboardPage = (() => {
 
   // ── Build category legend ──────────────────
   function buildCatLegend(catSpend, symbol) {
-    const legend  = document.getElementById('cat-legend');
+    const legend = document.getElementById('cat-legend');
     if (!legend) return;
 
     const total   = Object.values(catSpend).reduce((a, b) => a + b, 0);
@@ -362,7 +447,11 @@ const dashboardPage = (() => {
   }
 
   // ── Expose ────────────────────────────────
-  return { init, render };
+  return {
+    init,
+    render,
+    handleMonthChange
+  };
 
 })();
 

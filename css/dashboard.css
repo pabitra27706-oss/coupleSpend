@@ -3,6 +3,70 @@
    CoupleSpend App
 ───────────────────────────────────────── */
 
+/* ── Month Selector Card ──────────────── */
+.month-selector-card {
+  background:    var(--bg-card);
+  border:        1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding:       var(--space-3) var(--space-4);
+  margin-bottom: var(--space-1);
+}
+
+.month-selector-row {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-3);
+}
+
+.month-selector-left {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-2);
+  flex-shrink: 0;
+}
+
+.month-cal-icon {
+  color:       var(--accent);
+  flex-shrink: 0;
+}
+
+.month-selector-label {
+  font-size:   var(--text-sm);
+  font-weight: var(--weight-medium);
+  color:       var(--text-secondary);
+  white-space: nowrap;
+}
+
+.month-select-input {
+  flex:             1;
+  padding:          10px 36px 10px 12px;
+  background:       var(--bg-input);
+  border:           1px solid var(--border);
+  border-radius:    var(--radius-lg);
+  color:            var(--text-primary);
+  font-size:        var(--text-sm);
+  font-weight:      var(--weight-medium);
+  cursor:           pointer;
+  transition:       border-color 0.2s ease, box-shadow 0.2s ease;
+  appearance:       none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:   no-repeat;
+  background-position: right 10px center;
+  min-width: 0;
+}
+
+.month-select-input:focus {
+  outline:    none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+
+.month-select-input:disabled {
+  opacity: 0.5;
+  cursor:  not-allowed;
+}
+
 /* ── Month Header ─────────────────────── */
 .dashboard-month {
   display:         flex;
@@ -15,11 +79,11 @@
   color:       var(--text-secondary);
 }
 .dashboard-month .btn svg {
-  width:        14px;
-  height:       14px;
-  stroke:       currentColor;
-  fill:         none;
-  stroke-width: 1.5;
+  width:           14px;
+  height:          14px;
+  stroke:          currentColor;
+  fill:            none;
+  stroke-width:    1.5;
   stroke-linecap:  round;
   stroke-linejoin: round;
 }
@@ -54,17 +118,17 @@
   border-radius: 50%;
 }
 .hero-label {
-  font-size:   var(--text-xs);
-  font-weight: var(--weight-medium);
-  opacity:     0.75;
+  font-size:      var(--text-xs);
+  font-weight:    var(--weight-medium);
+  opacity:        0.75;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 .hero-amount {
-  font-size:   2.5rem;
-  font-weight: var(--weight-bold);
-  line-height: 1.1;
-  margin:      var(--space-2) 0;
+  font-size:            2.5rem;
+  font-weight:          var(--weight-bold);
+  line-height:          1.1;
+  margin:               var(--space-2) 0;
   font-variant-numeric: tabular-nums;
 }
 .hero-sub {
@@ -75,9 +139,9 @@
 
 /* ── Hero Compare Bar ─────────────────── */
 .hero-compare {
-  margin-top:    var(--space-5);
-  padding-top:   var(--space-4);
-  border-top:    1px solid rgba(255,255,255,0.15);
+  margin-top:  var(--space-5);
+  padding-top: var(--space-4);
+  border-top:  1px solid rgba(255,255,255,0.15);
 }
 .hero-compare-bar {
   display:       flex;
@@ -96,29 +160,21 @@
   align-items:   center;
   overflow:      hidden;
 }
-.hero-compare-you {
-  background: rgba(255,255,255,0.9);
-}
-.hero-compare-her {
-  background: rgba(255,255,255,0.35);
-}
+.hero-compare-you { background: rgba(255,255,255,0.9); }
+.hero-compare-her { background: rgba(255,255,255,0.35); }
 .hero-compare-you span,
-.hero-compare-her span {
-  display: none;
-}
+.hero-compare-her span { display: none; }
 .hero-compare-label {
   font-size: var(--text-xs);
   opacity:   0.85;
 }
-.hero-compare-label strong {
-  font-weight: var(--weight-semi);
-}
+.hero-compare-label strong { font-weight: var(--weight-semi); }
 
 /* ── Stats Row ────────────────────────── */
 .stats-row {
-  display: grid;
+  display:               grid;
   grid-template-columns: repeat(3, 1fr);
-  gap:     var(--space-3);
+  gap:                   var(--space-3);
 }
 .stat-card {
   background:     var(--bg-card);
@@ -134,7 +190,7 @@
   text-align:     center;
 }
 .stat-card:active {
-  transform: scale(0.97);
+  transform:  scale(0.97);
   background: var(--bg-input);
 }
 .stat-card-icon {
@@ -146,18 +202,18 @@
   justify-content: center;
 }
 .stat-card-icon svg {
-  width:        18px;
-  height:       18px;
-  stroke:       currentColor;
-  fill:         none;
-  stroke-width: 1.5;
+  width:           18px;
+  height:          18px;
+  stroke:          currentColor;
+  fill:            none;
+  stroke-width:    1.5;
   stroke-linecap:  round;
   stroke-linejoin: round;
 }
 .stat-card-value {
-  font-size:   var(--text-base);
-  font-weight: var(--weight-bold);
-  color:       var(--text-primary);
+  font-size:            var(--text-base);
+  font-weight:          var(--weight-bold);
+  color:                var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 .stat-card-label {
@@ -197,23 +253,23 @@
   color:     var(--text-secondary);
 }
 .legend-pct {
-  font-size:   var(--text-xs);
-  color:       var(--text-muted);
-  min-width:   36px;
-  text-align:  right;
+  font-size:  var(--text-xs);
+  color:      var(--text-muted);
+  min-width:  36px;
+  text-align: right;
 }
 .legend-amt {
-  font-size:   var(--text-xs);
-  font-weight: var(--weight-semi);
-  color:       var(--text-primary);
-  min-width:   70px;
-  text-align:  right;
+  font-size:            var(--text-xs);
+  font-weight:          var(--weight-semi);
+  color:                var(--text-primary);
+  min-width:            70px;
+  text-align:           right;
   font-variant-numeric: tabular-nums;
 }
 
 /* ── Budget Rows ──────────────────────── */
-.budget-list { display: flex; flex-direction: column; gap: var(--space-4); }
-.dash-budget-row { display: flex; flex-direction: column; gap: var(--space-2); }
+.budget-list        { display: flex; flex-direction: column; gap: var(--space-4); }
+.dash-budget-row    { display: flex; flex-direction: column; gap: var(--space-2); }
 .dash-budget-info {
   display:         flex;
   align-items:     center;
@@ -233,11 +289,11 @@
   justify-content: center;
 }
 .dash-budget-icon svg {
-  width:        14px;
-  height:       14px;
-  stroke:       currentColor;
-  fill:         none;
-  stroke-width: 1.5;
+  width:           14px;
+  height:          14px;
+  stroke:          currentColor;
+  fill:            none;
+  stroke-width:    1.5;
   stroke-linecap:  round;
   stroke-linejoin: round;
 }
@@ -247,11 +303,11 @@
   color:       var(--text-primary);
 }
 .dash-budget-amounts {
-  font-size: var(--text-sm);
+  font-size:            var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Card Flush (no padding) ──────────── */
+/* ── Card Flush ───────────────────────── */
 .card-flush {
   background:    var(--bg-card);
   border:        1px solid var(--border);
@@ -260,7 +316,7 @@
   box-shadow:    var(--shadow);
 }
 .card-flush .section-header {
-  padding: var(--space-5);
+  padding:        var(--space-5);
   padding-bottom: var(--space-3);
 }
 
@@ -282,17 +338,17 @@
   margin:          0 auto var(--space-3);
 }
 .tx-detail-icon svg {
-  width:        28px;
-  height:       28px;
-  stroke:       currentColor;
-  fill:         none;
-  stroke-width: 1.5;
+  width:           28px;
+  height:          28px;
+  stroke:          currentColor;
+  fill:            none;
+  stroke-width:    1.5;
   stroke-linecap:  round;
   stroke-linejoin: round;
 }
 .tx-detail-amount {
-  font-size:   var(--text-3xl);
-  font-weight: var(--weight-bold);
+  font-size:            var(--text-3xl);
+  font-weight:          var(--weight-bold);
   font-variant-numeric: tabular-nums;
 }
 .tx-detail-amount.expense { color: var(--danger); }
@@ -320,8 +376,8 @@
 }
 .tx-detail-row:last-child { border-bottom: none; }
 .tx-detail-label {
-  font-size: var(--text-sm);
-  color:     var(--text-muted);
+  font-size:   var(--text-sm);
+  color:       var(--text-muted);
   flex-shrink: 0;
 }
 .tx-detail-value {
@@ -331,24 +387,22 @@
   text-align:  right;
 }
 .tx-detail-tags {
-  display:   flex;
-  flex-wrap: wrap;
-  gap:       var(--space-1);
+  display:         flex;
+  flex-wrap:       wrap;
+  gap:             var(--space-1);
   justify-content: flex-end;
 }
 .tx-detail-actions {
   display: flex;
   gap:     var(--space-3);
 }
-.tx-detail-actions .btn {
-  flex: 1;
-}
+.tx-detail-actions .btn { flex: 1; }
 .tx-detail-actions .btn svg {
-  width:        16px;
-  height:       16px;
-  stroke:       currentColor;
-  fill:         none;
-  stroke-width: 1.5;
+  width:           16px;
+  height:          16px;
+  stroke:          currentColor;
+  fill:            none;
+  stroke-width:    1.5;
   stroke-linecap:  round;
   stroke-linejoin: round;
 }

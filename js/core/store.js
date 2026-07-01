@@ -50,9 +50,35 @@ const store = (() => {
   async function init(firebaseUser) {
     setState('user', firebaseUser);
 
-    // Set current month
-    const now = new Date();
-    state.currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // ── Smart month detection ──────────────
+    // Try to find the most recent transaction month.
+    // Falls back to current calendar month if none found
+    // or if the index is not yet created.
+    try {
+      const recentSnap = await db
+        .collection(COLLECTIONS.TRANSACTIONS)
+        .where('userId', '==', firebaseUser.uid)
+        .orderBy('date', 'desc')
+        .limit(1)
+        .get();
+
+      if (!recentSnap.empty) {
+        const lastMonth = recentSnap.docs[0].data().month;
+        if (lastMonth) {
+          state.currentMonth = lastMonth;
+          console.log('📅 Auto-detected month:', lastMonth);
+        } else {
+          setCurrentMonthFallback();
+        }
+      } else {
+        setCurrentMonthFallback();
+      }
+    } catch (err) {
+      // Index not ready yet or permission error —
+      // fall back silently to current month
+      console.warn('📅 Month detection fallback:', err.message);
+      setCurrentMonthFallback();
+    }
 
     // Load user profile
     await loadProfile(firebaseUser.uid);
@@ -75,6 +101,13 @@ const store = (() => {
 
     // Start real-time listeners
     startListeners(firebaseUser.uid);
+  }
+
+  // ── Fallback: use current calendar month ──
+  function setCurrentMonthFallback() {
+    const now = new Date();
+    state.currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    console.log('📅 Using current month:', state.currentMonth);
   }
 
   // ── Load Profile ───────────────────────
